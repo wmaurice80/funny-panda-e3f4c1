@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "calsnap",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/wmaurice/projects/calsnap && npm run dev -- --port $PORT"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}
