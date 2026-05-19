@@ -22,6 +22,26 @@ const DRINKS = [
     ],
   },
   {
+    id: 'biere-forte-8',
+    nom: 'Bière forte (8%)',
+    emoji: '🍺',
+    portions: [
+      { label: 'Demi 25cl', calories: 163, proteines: 1, portion: '25 cl' },
+      { label: 'Canette 33cl', calories: 215, proteines: 2, portion: '33 cl' },
+      { label: 'Bouteille 75cl', calories: 488, proteines: 3, portion: '75 cl' },
+    ],
+  },
+  {
+    id: 'biere-forte-10',
+    nom: 'Bière forte (10%)',
+    emoji: '🍺',
+    portions: [
+      { label: 'Demi 25cl', calories: 200, proteines: 1, portion: '25 cl' },
+      { label: 'Canette 33cl', calories: 264, proteines: 2, portion: '33 cl' },
+      { label: 'Bouteille 75cl', calories: 600, proteines: 3, portion: '75 cl' },
+    ],
+  },
+  {
     id: 'vin-rouge',
     nom: 'Vin rouge',
     emoji: '🍷',
