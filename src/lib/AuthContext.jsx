@@ -37,6 +37,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     // Vérification de la session existante au montage
@@ -49,9 +50,9 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
-      // Rapatrier les données Supabase → IndexedDB au login
       if (event === 'SIGNED_IN') {
-        syncFromSupabase()
+        setSyncing(true)
+        syncFromSupabase().finally(() => setSyncing(false))
       }
     })
 
@@ -80,7 +81,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, syncing, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )

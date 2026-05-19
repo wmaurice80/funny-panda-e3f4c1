@@ -15,34 +15,23 @@ import Migration from './pages/Migration';
 
 const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration'];
 
+function Spinner({ label }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4"
+      style={{ backgroundColor: '#0f0f1a' }}>
+      <div className="w-10 h-10 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+      {label && <p className="text-sm text-gray-400">{label}</p>}
+    </div>
+  );
+}
+
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, syncing } = useAuth();
   const { pathname } = useLocation();
   const showNav = !NO_NAV_ROUTES.includes(pathname);
 
-  // Vérification de session en cours
-  if (loading) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: '#0f0f1a' }}
-      >
-        <svg
-          className="animate-spin h-10 w-10 text-indigo-500"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
-      </div>
-    );
-  }
+  if (loading) return <Spinner />;
+  if (syncing) return <Spinner label="Synchronisation des données…" />
 
   // Non authentifié : afficher la page d'auth
   if (!user) {
