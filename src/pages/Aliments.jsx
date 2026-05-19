@@ -8,6 +8,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncedAddMeal } from '../lib/syncManager';
 import ProteinSources from '../components/ProteinSources';
+import DrinkSources from '../components/DrinkSources';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -624,6 +625,7 @@ export default function Aliments() {
 
         {/* Sources de protéines pré-configurées */}
         {!searching && <ProteinSources onAjouter={ajouterAuPanier} />}
+        {!searching && <DrinkSources onAjouter={ajouterAuPanier} />}
 
         {/* Bloc saisie libre — affiché si : aucun résultat OU erreur réseau OU jamais cherché */}
         {!searching && (networkFallback || (resultats !== null && resultats.length === 0) || resultats === null) && (
