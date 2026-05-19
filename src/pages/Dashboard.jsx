@@ -60,6 +60,7 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
   const totalDepense = cible + totalSport;
   const bilan = caloriesIngerees - totalDepense; // négatif = dans la cible, positif = dépassé
   const isOk = bilan <= 0;
+  const isWarning = bilan > 0 && bilan <= 200;
 
   // Barre : ingérées vs cible seule (sans sport)
   const progressPct = cible > 0
@@ -67,12 +68,15 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
     : 0;
 
   const style = OBJECTIF_STYLE[objectif] ?? OBJECTIF_STYLE.maintien;
-  const bilanColor = isOk ? 'text-emerald-400' : 'text-red-400';
+  const bilanColor = isOk ? 'text-emerald-400' : isWarning ? 'text-orange-400' : 'text-red-400';
 
+  const deficitReel = tdee - caloriesIngerees; // déficit réel vs TDEE Garmin
   const resteOuDepasse = Math.abs(bilan);
   const phraseContextuelle = isOk
-    ? `Il te reste ${(cible - caloriesIngerees + totalSport).toLocaleString('fr-FR')} kcal`
-    : `Tu as dépassé ta cible de ${resteOuDepasse.toLocaleString('fr-FR')} kcal`;
+    ? `Il te reste ${resteOuDepasse.toLocaleString('fr-FR')} kcal`
+    : isWarning
+    ? `Légèrement au-dessus (+${resteOuDepasse.toLocaleString('fr-FR')} kcal)`
+    : `Cible dépassée de +${resteOuDepasse.toLocaleString('fr-FR')} kcal`;
 
   return (
     <div
@@ -131,16 +135,31 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
 
         {/* Bilan net */}
         <div className="border-t border-white/10 pt-3 flex justify-between items-center">
-          <span className="text-sm font-semibold text-gray-300">Bilan net</span>
-          <span className={`font-extrabold ${bilanColor}`}>
-            {isOk ? '' : '+'}{bilan.toLocaleString('fr-FR')} kcal
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-gray-300">Bilan net</span>
+            <span className="text-xs text-gray-600">🎯 Objectif : 0 kcal</span>
+          </div>
+          <span className={`font-extrabold text-lg ${bilanColor}`}>
+            {bilan > 0 ? '+' : ''}{bilan.toLocaleString('fr-FR')} kcal
           </span>
         </div>
 
         {/* Phrase contextuelle */}
-        <p className={`text-sm font-bold text-center ${isOk ? 'text-emerald-400' : 'text-red-400'}`}>
+        <p className={`text-sm font-bold text-center ${bilanColor}`}>
           {phraseContextuelle}
         </p>
+
+        {/* Déficit réel vs TDEE */}
+        {caloriesIngerees > 0 && tdee > 0 && (
+          <div className={`rounded-xl px-3 py-2 flex items-center justify-between text-xs
+            ${deficitReel >= 0 ? 'bg-emerald-900/20 border border-emerald-700/30' : 'bg-red-900/20 border border-red-700/30'}`}>
+            <span className="text-gray-400">Déficit réel vs TDEE Garmin</span>
+            <span className={`font-bold ${deficitReel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {deficitReel >= 0 ? '-' : '+'}{Math.abs(deficitReel).toLocaleString('fr-FR')} kcal
+            </span>
+          </div>
+        )}
+
 
         {/* Barre de progression : ingérées / cible */}
         <div className="w-full h-2 bg-[#22223b] rounded-full overflow-hidden">
