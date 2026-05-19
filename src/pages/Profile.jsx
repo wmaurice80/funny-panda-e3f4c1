@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../db';
 import { syncedSaveProfile } from '../lib/syncManager';
 import { ACTIVITY_LABELS, calculateProteinGoal } from '../utils/bmr';
+import { useAuth } from '../lib/AuthContext';
 
 const INITIAL = {
   prenom: '',
@@ -58,6 +59,7 @@ const inputClass =
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -141,16 +143,32 @@ export default function Profile() {
             Ces informations permettent de calculer vos besoins caloriques.
           </p>
         </div>
-        <button
-          form="profile-form"
-          type="submit"
-          disabled={saving}
-          className="mt-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500
-                     active:scale-95 text-white font-semibold text-sm shadow-lg
-                     shadow-violet-900/50 transition-all duration-200 disabled:opacity-60 flex-shrink-0"
-        >
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            type="button"
+            onClick={signOut}
+            className="w-9 h-9 flex items-center justify-center rounded-xl
+                       bg-[#1a1a2e] border border-white/10 text-gray-400
+                       hover:text-red-400 hover:border-red-800/50 active:scale-90 transition-all duration-200"
+            title="Se déconnecter"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+          <button
+            form="profile-form"
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500
+                       active:scale-95 text-white font-semibold text-sm shadow-lg
+                       shadow-violet-900/50 transition-all duration-200 disabled:opacity-60 flex-shrink-0"
+          >
           {saving ? '…' : 'Enregistrer'}
-        </button>
+          </button>
+        </div>
       </div>
 
       <form id="profile-form" onSubmit={handleSubmit} className="px-5 flex flex-col gap-5 animate-fade-in-up pb-8">

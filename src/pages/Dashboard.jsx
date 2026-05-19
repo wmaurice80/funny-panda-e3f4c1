@@ -286,7 +286,7 @@ function PoidsWidget({ latestWeight, evolution30, onNavigate }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [caloriesIngerees, setCaloriesIngerees] = useState(0);
   const [totalSport, setTotalSport] = useState(0);
@@ -404,6 +404,19 @@ export default function Dashboard() {
                           flex items-center justify-center text-white font-bold text-lg shadow-lg">
             {profile.prenom[0].toUpperCase()}
           </div>
+          <button
+            onClick={signOut}
+            className="w-9 h-9 flex items-center justify-center rounded-xl
+                       bg-[#1a1a2e] border border-white/10 text-gray-400
+                       hover:text-red-400 hover:border-red-800/50 active:scale-90 transition-all duration-200"
+            title="Se déconnecter"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
 
