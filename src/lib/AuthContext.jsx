@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { pullProfile, pullAllMeals, pullAllActivities, pullAllWeights } from './supabaseDb'
-import { saveProfile, addMeal, addActivity, addWeight, getProfile } from '../db'
+import { saveProfile, addMeal, addActivity, addWeight } from '../db'
 
 async function syncFromSupabase() {
   try {
