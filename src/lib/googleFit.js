@@ -1,6 +1,7 @@
 // src/lib/googleFit.js
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET
 const REDIRECT_URI = `${window.location.origin}/auth/google/callback`
 const SCOPES =
   'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read'
@@ -79,6 +80,7 @@ export async function handleCallback(code) {
 
   const body = new URLSearchParams({
     client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
     redirect_uri: REDIRECT_URI,
     grant_type: 'authorization_code',
     code,
@@ -133,6 +135,7 @@ export async function getAccessToken() {
 
   const body = new URLSearchParams({
     client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
   })
