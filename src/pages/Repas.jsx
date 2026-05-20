@@ -12,6 +12,7 @@ import { getMealsForDate } from '../db';
 import { syncedAddMeal, syncedDeleteMeal } from '../lib/syncManager';
 import AnalyseResult from '../components/AnalyseResult';
 import MealCard from '../components/MealCard';
+import CameraCapture from '../components/CameraCapture';
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -144,6 +145,7 @@ export default function Repas() {
   const [analyseResult, setAnalyseResult] = useState(null);
   const [analyseError, setAnalyseError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
 
   // Journal du jour
   const [meals, setMeals] = useState([]);
@@ -236,8 +238,15 @@ export default function Repas() {
     setAnalyseResult(null);
     setAnalyseError(null);
     setPreviewUrl(null);
-    if (cameraInputRef.current)  cameraInputRef.current.value  = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
+  }
+
+  function handleCameraCapture(file) {
+    setShowCamera(false);
+    setAnalyseResult(null);
+    setAnalyseError(null);
+    setPreviewUrl(URL.createObjectURL(file));
+    lancerAnalyse(file);
   }
 
   // ── Suppression d'un repas ────────────────────────────────────────────────
@@ -254,6 +263,13 @@ export default function Repas() {
   // ────────────────────────────────────────────────────────────────────────
 
   return (
+    <>
+    {showCamera && (
+      <CameraCapture
+        onCapture={handleCameraCapture}
+        onCancel={() => setShowCamera(false)}
+      />
+    )}
     <div className="flex flex-col min-h-screen bg-[#0f0f1a] pb-36">
       {/* Header */}
       <div className="px-5 pt-12 pb-6">
@@ -309,14 +325,6 @@ export default function Repas() {
         {/* Boutons (visible si pas d'analyse en cours / résultat affiché) */}
         {!analysing && !analyseResult && (
           <>
-            {/* Input caméra — listener natif via useEffect */}
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-            />
             {/* Input galerie */}
             <input
               ref={galleryInputRef}
@@ -326,10 +334,10 @@ export default function Repas() {
               onChange={handleFileChange}
             />
 
-            {/* Bouton caméra principal */}
+            {/* Bouton caméra principal — ouvre CameraCapture */}
             <button
               type="button"
-              onClick={() => { if (cameraInputRef.current) { cameraInputRef.current.value = ''; cameraInputRef.current.click(); } }}
+              onClick={() => setShowCamera(true)}
               className="flex flex-col items-center justify-center gap-3 w-full py-10
                          rounded-3xl
                          bg-gradient-to-br from-violet-700 to-indigo-600
@@ -470,5 +478,6 @@ export default function Repas() {
 
       </div>
     </div>
+    </>
   );
 }
