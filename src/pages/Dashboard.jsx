@@ -408,7 +408,15 @@ export default function Dashboard() {
 
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
-  const tdeeEffectif = (gfitData?.tdee?.tdee ?? 0) > 0 ? gfitData.tdee.tdee : tdee;
+
+  // TDEE dynamique : BMR profil + calories actives Google Fit (si dispo)
+  // calories.expended de Google Fit = calories actives Garmin (sans BMR)
+  const gfitActive = gfitData?.tdee?.active ?? 0;
+  const gfitBmr = gfitData?.tdee?.bmr ?? 0;
+  const tdeeEffectif = gfitActive > 0
+    ? (gfitBmr > 0 ? gfitBmr + gfitActive : bmr + gfitActive)  // BMR Google Fit ou BMR profil + actif
+    : tdee;  // fallback TDEE Garmin mesuré
+
   const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
   const proteinGoal = calculateProteinGoal(profile);
@@ -504,6 +512,7 @@ export default function Dashboard() {
             data={gfitData}
             loading={gfitLoading}
             tdeeGarmin={tdee}
+            tdeeEffectif={tdeeEffectif}
             onRefresh={() => {
               setGfitLoading(true);
               fetchAllDayData(todayISO())

@@ -29,7 +29,7 @@ function fmtNum(n) {
   return Math.round(n).toLocaleString('fr-FR');
 }
 
-export default function GoogleFitCard({ data, loading, tdeeGarmin, onRefresh }) {
+export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif, onRefresh }) {
   const navigate = useNavigate();
 
   // ── État vide ──────────────────────────────────────────────────────────────
@@ -89,8 +89,12 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, onRefresh }) 
   const { tdee, steps, heartRate, activities } = data;
 
   // Écart TDEE Google Fit vs Garmin fixe
-  const tdeeFit = tdee?.tdee ?? 0;
+  const gfitActive = tdee?.active ?? 0;
+  const gfitBmr = tdee?.bmr ?? 0;
+  // tdeeEffectif vient du Dashboard (BMR profil + actif Google Fit)
+  const tdeeFit = tdeeEffectif > 0 && gfitActive > 0 ? tdeeEffectif : (tdee?.tdee ?? 0);
   const diff = tdeeGarmin > 0 && tdeeFit > 0 ? tdeeFit - tdeeGarmin : null;
+  const bmrSource = gfitBmr > 0 ? 'Google Fit' : 'profil';
 
   // Max 3 activités
   const visibleActivities = Array.isArray(activities)
@@ -133,7 +137,9 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, onRefresh }) 
             <span className="text-violet-400 text-3xl font-extrabold leading-none">
               {fmtNum(tdeeFit)} kcal
             </span>
-            <span className="text-xs text-gray-500">TDEE réel du jour (BMR + actif)</span>
+            <span className="text-xs text-gray-500">
+              TDEE du jour — BMR ({bmrSource}) + {fmtNum(gfitActive)} kcal actif Garmin
+            </span>
             {diff !== null && (
               <span className={`text-xs font-semibold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {diff >= 0 ? '↑' : '↓'} {diff >= 0 ? '+' : ''}{fmtNum(diff)} kcal vs base Garmin ({fmtNum(tdeeGarmin)})

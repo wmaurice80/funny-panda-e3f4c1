@@ -380,6 +380,7 @@ export async function fetchDailyTDEE(dateISO) {
 
     const bmrRounded = Math.round(bmr)
     const activeRounded = Math.round(active)
+    // Si BMR Google Fit = 0, le Dashboard utilisera le BMR du profil comme base
     return {
       tdee: bmrRounded + activeRounded,
       bmr: bmrRounded,
