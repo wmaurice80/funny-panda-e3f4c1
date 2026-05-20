@@ -322,7 +322,6 @@ export default function Repas() {
               id="photo-input"
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={handleFileChange}
             />
