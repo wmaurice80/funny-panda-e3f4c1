@@ -545,9 +545,12 @@ export async function fetchActivitiesForDate(dateISO) {
     const startMs = dateToStartOfDayMs(dateISO)
     const endMs = startMs + 24 * 60 * 60 * 1000
 
+    // bucketByActivityType non disponible sur ce compte — on utilise bucketByTime (30 min)
+    // pour détecter les créneaux avec activité significative (>5 kcal/30min)
+    const SLOT = 30 * 60 * 1000
     const body = {
-      aggregateBy: [{ dataTypeName: 'com.google.activity.summary' }],
-      bucketByActivityType: { minDurationMillis: 60000 },
+      aggregateBy: [{ dataTypeName: 'com.google.calories.expended' }],
+      bucketByTime: { durationMillis: SLOT },
       startTimeMillis: startMs,
       endTimeMillis: endMs,
     }
@@ -575,28 +578,28 @@ export async function fetchActivitiesForDate(dateISO) {
     const buckets = data.bucket || []
     const activities = []
 
+    // Regroupe les créneaux consécutifs avec calories > 5 kcal/30min (= activité détectée)
+    let currentSession = null
     for (const bucket of buckets) {
-      const activityType = bucket.activity ? parseInt(bucket.activity, 10) : null
-      const name = activityType != null
-        ? (ACTIVITY_NAMES[activityType] ?? activityIdToName(activityType))
-        : 'Activité'
-
-      const durationMs = parseInt(bucket.endTimeMillis, 10) - parseInt(bucket.startTimeMillis, 10)
-      const dureeMin = Math.round(durationMs / 60000)
-
-      let calories = 0
+      let kcal = 0
       for (const dataset of bucket.dataset || []) {
         for (const point of dataset.point || []) {
-          calories += point.value?.[0]?.fpVal ?? 0
+          kcal += point.value?.[0]?.fpVal ?? 0
         }
       }
-
-      activities.push({
-        name,
-        dureeMin,
-        calories: Math.round(calories),
-      })
+      if (kcal > 5) {
+        if (currentSession) {
+          currentSession.calories += kcal
+          currentSession.dureeMin += 30
+        } else {
+          currentSession = { name: 'Activité (Google Fit)', dureeMin: 30, calories: kcal }
+        }
+      } else if (currentSession) {
+        activities.push({ ...currentSession, calories: Math.round(currentSession.calories) })
+        currentSession = null
+      }
     }
+    if (currentSession) activities.push({ ...currentSession, calories: Math.round(currentSession.calories) })
 
     return activities
   } catch (err) {
