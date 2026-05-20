@@ -185,13 +185,9 @@ export async function fetchActiveCalodesForDate(dateISO) {
 
   const body = {
     aggregateBy: [
-      {
-        dataTypeName: 'com.google.calories.expended',
-        dataSourceId:
-          'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
-      },
+      { dataTypeName: 'com.google.calories.expended' },
     ],
-    bucketByActivitySegment: { minDurationMillis: 1000 },
+    bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
     startTimeMillis: startMs,
     endTimeMillis: endMs,
   }
@@ -219,29 +215,22 @@ export async function fetchActiveCalodesForDate(dateISO) {
   const buckets = data.bucket || []
 
   let totalKcal = 0
-  const sessions = []
-
+  // bucketByTime : 1 bucket = toute la journée
   for (const bucket of buckets) {
-    let kcal = 0
     for (const dataset of bucket.dataset || []) {
       for (const point of dataset.point || []) {
-        const val = point.value?.[0]?.fpVal ?? 0
-        kcal += val
+        totalKcal += point.value?.[0]?.fpVal ?? 0
       }
-    }
-    totalKcal += kcal
-
-    if (kcal > 0) {
-      const startTime = new Date(parseInt(bucket.startTimeMillis, 10)).toISOString()
-      const endTime = new Date(parseInt(bucket.endTimeMillis, 10)).toISOString()
-      const activityName = bucket.activity
-        ? activityIdToName(bucket.activity)
-        : 'Activité'
-      sessions.push({ name: activityName, startTime, endTime, kcal: Math.round(kcal) })
     }
   }
 
-  return { totalKcal: Math.round(totalKcal), sessions }
+  const totalRounded = Math.round(totalKcal)
+  // On retourne 1 session synthétique représentant la journée
+  const sessions = totalRounded > 0
+    ? [{ name: 'Google Fit (journée)', startTime: new Date(startMs).toISOString(), endTime: new Date(endMs).toISOString(), kcal: totalRounded }]
+    : []
+
+  return { totalKcal: totalRounded, sessions }
 }
 
 /**
