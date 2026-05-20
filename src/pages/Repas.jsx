@@ -294,16 +294,7 @@ export default function Repas() {
         {/* Boutons (visible si pas d'analyse en cours / résultat affiché) */}
         {!analysing && !analyseResult && (
           <>
-            {/* Input caméra */}
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            {/* Input galerie */}
+            {/* Input unique — pas de capture pour fiabilité Android */}
             <input
               ref={galleryInputRef}
               type="file"
@@ -312,10 +303,10 @@ export default function Repas() {
               onChange={handleFileChange}
             />
 
-            {/* Bouton caméra (principal) */}
+            {/* Bouton photo principal */}
             <button
               type="button"
-              onClick={() => { if (cameraInputRef.current) { cameraInputRef.current.value = ''; cameraInputRef.current.click(); } }}
+              onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
               className="flex flex-col items-center justify-center gap-3 w-full py-10
                          rounded-3xl cursor-pointer
                          bg-gradient-to-br from-violet-700 to-indigo-600
@@ -324,34 +315,23 @@ export default function Repas() {
             >
               <span className="text-5xl">📸</span>
               <span className="text-white font-semibold text-base tracking-wide">
-                Prendre une photo
+                Photo du repas
               </span>
               <span className="text-violet-200 text-xs">
-                L'IA analysera les calories automatiquement
+                Appareil photo ou galerie → l'IA analyse les calories
               </span>
             </button>
 
-            {/* Bouton galerie + ajout manuel */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
-                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
-                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
-                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
-              >
-                <span>🖼️</span> Galerie
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
-                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
-                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
-                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
-              >
-                <span>➕</span> Manuel
-              </button>
-            </div>
+            {/* Bouton ajout manuel */}
+            <button
+              type="button"
+              onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
+              className="w-full py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
+                         text-gray-300 font-medium text-sm flex items-center justify-center gap-2
+                         hover:bg-[#22223b] active:scale-95 transition-all duration-200"
+            >
+              <span>➕</span> Ajouter manuellement
+            </button>
           </>
         )}
 
