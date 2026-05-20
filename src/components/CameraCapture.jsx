@@ -89,7 +89,7 @@ export default function CameraCapture({ onCapture, onCancel }) {
 
       {/* Contrôles */}
       {ready && !error && (
-        <div className="bg-black/80 px-6 py-8 flex items-center justify-between">
+        <div className="bg-black/80 px-6 pt-8 pb-24 flex items-center justify-between">
           {/* Annuler */}
           <button onClick={handleCancel}
             className="w-14 h-14 rounded-full border-2 border-white/30 text-white
