@@ -557,6 +557,18 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* Bouton Intégrations */}
+      <div className="px-5 mb-4 flex justify-center">
+        <button
+          onClick={() => navigate('/integrations')}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors duration-200
+                     flex items-center gap-1.5 py-1"
+        >
+          <span>⚙️</span>
+          Intégrations
+        </button>
+      </div>
     </div>
   );
 }

@@ -12,8 +12,10 @@ import Historique from './pages/Historique';
 import Poids from './pages/Poids';
 import Auth from './pages/Auth';
 import Migration from './pages/Migration';
+import GoogleFitCallback from './pages/GoogleFitCallback';
+import Integrations from './pages/Integrations';
 
-const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration'];
+const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations'];
 
 function Spinner({ label }) {
   return (
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="/historique" element={<Historique />} />
         <Route path="/poids" element={<Poids />} />
         <Route path="/migration" element={<Migration />} />
+        <Route path="/auth/google/callback" element={<GoogleFitCallback />} />
+        <Route path="/integrations" element={<Integrations />} />
       </Routes>
       {showNav && <BottomNav />}
     </>
