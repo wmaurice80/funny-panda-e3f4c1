@@ -130,7 +130,9 @@ Si tu ne peux pas analyser l'image, retourne: {"erreur": "Description du problè
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function Repas() {
-  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const fileInputRef = useRef(null); // conservé pour handleCancel reset
   const navigate = useNavigate();
 
   // États catégorie + date/heure
@@ -219,7 +221,8 @@ export default function Repas() {
     setAnalyseResult(null);
     setAnalyseError(null);
     setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   }
 
   // ── Suppression d'un repas ────────────────────────────────────────────────
@@ -288,21 +291,31 @@ export default function Repas() {
 
         {/* ── Zone analyse ─────────────────────────────────────────────────── */}
 
-        {/* Bouton principal (visible si pas d'analyse en cours / résultat affiché) */}
+        {/* Boutons (visible si pas d'analyse en cours / résultat affiché) */}
         {!analysing && !analyseResult && (
           <>
-            {/* Bouton ajout manuel */}
-            <button
-              onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
-              className="w-full py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
-                         text-gray-300 font-medium text-sm flex items-center justify-center gap-2
-                         hover:bg-[#22223b] active:scale-95 transition-all duration-200"
-            >
-              <span>➕</span> Ajouter manuellement
-            </button>
+            {/* Input caméra */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {/* Input galerie */}
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
 
-            <label
-              htmlFor="photo-input"
+            {/* Bouton caméra (principal) */}
+            <button
+              type="button"
+              onClick={() => { if (cameraInputRef.current) { cameraInputRef.current.value = ''; cameraInputRef.current.click(); } }}
               className="flex flex-col items-center justify-center gap-3 w-full py-10
                          rounded-3xl cursor-pointer
                          bg-gradient-to-br from-violet-700 to-indigo-600
@@ -311,20 +324,34 @@ export default function Repas() {
             >
               <span className="text-5xl">📸</span>
               <span className="text-white font-semibold text-base tracking-wide">
-                Photographier un repas
+                Prendre une photo
               </span>
               <span className="text-violet-200 text-xs">
                 L'IA analysera les calories automatiquement
               </span>
-            </label>
-            <input
-              ref={fileInputRef}
-              id="photo-input"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            </button>
+
+            {/* Bouton galerie + ajout manuel */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
+                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
+                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
+                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
+              >
+                <span>🖼️</span> Galerie
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
+                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
+                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
+                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
+              >
+                <span>➕</span> Manuel
+              </button>
+            </div>
           </>
         )}
 
