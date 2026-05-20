@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE, ACTIVITY_LABELS } from '../utils/bmr';
+import { isConnected, fetchAllDayData } from '../lib/googleFit';
+import GoogleFitCard from '../components/GoogleFitCard';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -313,6 +315,8 @@ export default function Dashboard() {
   const [latestWeight, setLatestWeight] = useState(undefined);
   const [evolution30, setEvolution30] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [gfitData, setGfitData] = useState(null);
+  const [gfitLoading, setGfitLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     const today = todayISO();
@@ -345,6 +349,14 @@ export default function Dashboard() {
       setEvolution30((w30[w30.length - 1].poids - w30[0].poids).toFixed(1));
     } else {
       setEvolution30(null);
+    }
+
+    // ── Google Fit : chargement parallèle ──────────────────────────────────
+    if (isConnected()) {
+      setGfitLoading(true);
+      fetchAllDayData(today)
+        .then((d) => { setGfitData(d); setGfitLoading(false); })
+        .catch(() => setGfitLoading(false));
     }
 
     setLoading(false);
@@ -396,7 +408,8 @@ export default function Dashboard() {
 
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
-  const cible = calculateCible(tdee, profile.objectif, profile.vitesseObjectif);
+  const tdeeEffectif = (gfitData?.tdee?.tdee ?? 0) > 0 ? gfitData.tdee.tdee : tdee;
+  const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
   const proteinGoal = calculateProteinGoal(profile);
 
@@ -460,15 +473,21 @@ export default function Dashboard() {
         />
         <StatCard
           label="TDEE — Dépense totale"
-          value={tdee}
+          value={tdeeEffectif}
           unit="kcal / jour"
           icon="⚡"
           color="text-violet-400"
           delay="60ms"
-          badge={profile.tdeeMesure > 0 ? '⌚ Garmin' : undefined}
+          badge={
+            (gfitData?.tdee?.tdee ?? 0) > 0
+              ? '🏃 Google Fit'
+              : profile.tdeeMesure > 0
+              ? '⌚ Garmin'
+              : undefined
+          }
         />
         <BilanCard
-          tdee={tdee}
+          tdee={tdeeEffectif}
           cible={cible}
           objectif={objectif}
           caloriesIngerees={caloriesIngerees}
@@ -480,6 +499,19 @@ export default function Dashboard() {
           goal={proteinGoal}
           delay="180ms"
         />
+        {isConnected() && (
+          <GoogleFitCard
+            data={gfitData}
+            loading={gfitLoading}
+            tdeeGarmin={tdee}
+            onRefresh={() => {
+              setGfitLoading(true);
+              fetchAllDayData(todayISO())
+                .then((d) => { setGfitData(d); setGfitLoading(false); })
+                .catch(() => setGfitLoading(false));
+            }}
+          />
+        )}
         {latestWeight !== undefined && (
           <PoidsWidget
             latestWeight={latestWeight}

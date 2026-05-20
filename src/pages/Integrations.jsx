@@ -10,7 +10,7 @@ import {
   isConnected,
   initiateGoogleAuth,
   disconnect,
-  fetchActiveCalodesForDate,
+  fetchAllDayData,
   fetchLatestWeight,
 } from '../lib/googleFit';
 import { getActivitiesForDate } from '../db';
@@ -99,36 +99,32 @@ export default function Integrations() {
       let importedKcal = 0;
       let importedPoids = null;
 
-      // ── US-F02 : Calories actives → Activités ──────────────────────────────
-      const sessions = await fetchActiveCalodesForDate(today);
+      // ── Récupération de toutes les données du jour en parallèle ───────────
+      const allDay = await fetchAllDayData(today);
+      const sessions = allDay.activities ?? [];
 
-      if (Array.isArray(sessions) && sessions.length > 0) {
+      // ── US-F02 : Activités → Activités CalSnap ────────────────────────────
+      if (sessions.length > 0) {
         // Récupère les activités existantes pour éviter les doublons
         const existing = await getActivitiesForDate(today);
 
         for (const session of sessions) {
-          const kcal = Math.round(session.kcal ?? 0);
-          if (kcal <= 0) continue;
+          const kcal = Math.round(session.calories ?? 0);
+          if (kcal <= 0 && (session.dureeMin ?? 0) <= 0) continue;
 
-          const startTime = session.startTime ?? 0;
-          const endTime   = session.endTime   ?? 0;
-          const duree     = Math.round((endTime - startTime) / 60000); // ms → min
-          const heure     = startTime
-            ? new Date(startTime).toTimeString().slice(0, 5)
-            : '00:00';
-
-          // Déduplication : même date + même heure + même type
           const typeName = session.name || 'Google Fit';
+
+          // Déduplication : même date + même type
           const isDuplicate = existing.some(
-            (a) => a.date === today && a.heure === heure && a.type === typeName
+            (a) => a.date === today && a.type === typeName
           );
 
           if (!isDuplicate) {
             await syncedAddActivity({
               date: today,
-              heure,
+              heure: '00:00',
               type: typeName,
-              duree: duree > 0 ? duree : 0,
+              duree: session.dureeMin ?? 0,
               caloriesBrulees: kcal,
               note: 'Importé depuis Google Fit',
             });
@@ -149,6 +145,9 @@ export default function Integrations() {
         activities: importedActivities,
         kcal: importedKcal,
         poids: importedPoids,
+        tdee: allDay.tdee?.tdee ?? null,
+        steps: allDay.steps?.steps ?? null,
+        heartRateAvg: allDay.heartRate?.avg ?? null,
       });
     } catch (err) {
       setSyncError('Erreur de synchronisation : ' + (err?.message ?? 'inconnue'));
@@ -241,22 +240,47 @@ export default function Integrations() {
               {/* Résultats de sync */}
               {syncResult !== null && (
                 <div className="rounded-xl px-4 py-3 bg-emerald-900/20 border border-emerald-700/30
-                                flex flex-col gap-1">
+                                flex flex-col gap-1.5">
                   <p className="text-sm font-bold text-emerald-400">
                     Synchronisation terminée ✓
                   </p>
+
+                  {/* Activités */}
                   {syncResult.activities > 0 ? (
                     <p className="text-xs text-emerald-300">
-                      {syncResult.activities} séance{syncResult.activities > 1 ? 's' : ''} importée{syncResult.activities > 1 ? 's' : ''} — {syncResult.kcal.toLocaleString('fr-FR')} kcal
+                      🏃 {syncResult.activities} séance{syncResult.activities > 1 ? 's' : ''} importée{syncResult.activities > 1 ? 's' : ''} — {syncResult.kcal.toLocaleString('fr-FR')} kcal
                     </p>
                   ) : (
                     <p className="text-xs text-gray-400">
                       Aucune nouvelle activité à importer
                     </p>
                   )}
+
+                  {/* TDEE du jour */}
+                  {syncResult.tdee != null && syncResult.tdee > 0 && (
+                    <p className="text-xs text-violet-300">
+                      ⚡ TDEE du jour : {syncResult.tdee.toLocaleString('fr-FR')} kcal
+                    </p>
+                  )}
+
+                  {/* Pas */}
+                  {syncResult.steps != null && syncResult.steps > 0 && (
+                    <p className="text-xs text-cyan-300">
+                      👟 Pas : {syncResult.steps.toLocaleString('fr-FR')}
+                    </p>
+                  )}
+
+                  {/* FC moyenne */}
+                  {syncResult.heartRateAvg != null && syncResult.heartRateAvg > 0 && (
+                    <p className="text-xs text-red-300">
+                      ❤️ FC moyenne : {syncResult.heartRateAvg} bpm
+                    </p>
+                  )}
+
+                  {/* Poids */}
                   {syncResult.poids !== null ? (
                     <p className="text-xs text-emerald-300">
-                      Poids synchronisé : {syncResult.poids} kg
+                      ⚖️ Poids synchronisé : {syncResult.poids} kg
                     </p>
                   ) : (
                     <p className="text-xs text-gray-400">

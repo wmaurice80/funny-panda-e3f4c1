@@ -313,6 +313,319 @@ export async function fetchWeightHistory(days = 30) {
 }
 
 // ---------------------------------------------------------------------------
+// Nouvelles fonctions Google Fit
+// ---------------------------------------------------------------------------
+
+/**
+ * Récupère le TDEE réel (BMR + calories actives) pour une date donnée.
+ * @param {string} dateISO - Date au format YYYY-MM-DD
+ * @returns {Promise<{ tdee: number, bmr: number, active: number }|null>}
+ */
+export async function fetchDailyTDEE(dateISO) {
+  try {
+    const accessToken = await getAccessToken()
+    const startMs = dateToStartOfDayMs(dateISO)
+    const endMs = startMs + 24 * 60 * 60 * 1000
+
+    const body = {
+      aggregateBy: [
+        { dataTypeName: 'com.google.calories.expended' },
+        { dataTypeName: 'com.google.calories.bmr' },
+      ],
+      bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+      startTimeMillis: startMs,
+      endTimeMillis: endMs,
+    }
+
+    const res = await fetch(
+      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    )
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        `Fitness API TDEE échouée (${res.status}) : ${err.error?.message || 'erreur inconnue'}`
+      )
+    }
+
+    const data = await res.json()
+    const buckets = data.bucket || []
+
+    let active = 0
+    let bmr = 0
+
+    for (const bucket of buckets) {
+      for (const dataset of bucket.dataset || []) {
+        const typeName = dataset.dataSourceId || ''
+        for (const point of dataset.point || []) {
+          const val = point.value?.[0]?.fpVal ?? 0
+          if (typeName.includes('calories.bmr')) {
+            bmr += val
+          } else {
+            active += val
+          }
+        }
+      }
+    }
+
+    if (active === 0 && bmr === 0) return null
+
+    const bmrRounded = Math.round(bmr)
+    const activeRounded = Math.round(active)
+    return {
+      tdee: bmrRounded + activeRounded,
+      bmr: bmrRounded,
+      active: activeRounded,
+    }
+  } catch (err) {
+    console.warn('[googleFit] fetchDailyTDEE :', err)
+    return null
+  }
+}
+
+/**
+ * Récupère le nombre de pas pour une date donnée.
+ * @param {string} dateISO - Date au format YYYY-MM-DD
+ * @returns {Promise<{ steps: number }>}
+ */
+export async function fetchSteps(dateISO) {
+  try {
+    const accessToken = await getAccessToken()
+    const startMs = dateToStartOfDayMs(dateISO)
+    const endMs = startMs + 24 * 60 * 60 * 1000
+
+    const body = {
+      aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
+      bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+      startTimeMillis: startMs,
+      endTimeMillis: endMs,
+    }
+
+    const res = await fetch(
+      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    )
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        `Fitness API pas échouée (${res.status}) : ${err.error?.message || 'erreur inconnue'}`
+      )
+    }
+
+    const data = await res.json()
+    const buckets = data.bucket || []
+    let steps = 0
+
+    for (const bucket of buckets) {
+      for (const dataset of bucket.dataset || []) {
+        for (const point of dataset.point || []) {
+          steps += point.value?.[0]?.intVal ?? 0
+        }
+      }
+    }
+
+    return { steps }
+  } catch (err) {
+    console.warn('[googleFit] fetchSteps :', err)
+    return { steps: 0 }
+  }
+}
+
+/**
+ * Récupère les données de fréquence cardiaque pour une date donnée.
+ * @param {string} dateISO - Date au format YYYY-MM-DD
+ * @returns {Promise<{ avg: number, min: number, max: number }|null>}
+ */
+export async function fetchHeartRate(dateISO) {
+  try {
+    const accessToken = await getAccessToken()
+    const startMs = dateToStartOfDayMs(dateISO)
+    const endMs = startMs + 24 * 60 * 60 * 1000
+
+    const body = {
+      aggregateBy: [{ dataTypeName: 'com.google.heart_rate.bpm' }],
+      bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+      startTimeMillis: startMs,
+      endTimeMillis: endMs,
+    }
+
+    const res = await fetch(
+      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    )
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        `Fitness API fréquence cardiaque échouée (${res.status}) : ${err.error?.message || 'erreur inconnue'}`
+      )
+    }
+
+    const data = await res.json()
+    const buckets = data.bucket || []
+    const points = []
+
+    for (const bucket of buckets) {
+      for (const dataset of bucket.dataset || []) {
+        for (const point of dataset.point || []) {
+          points.push(point)
+        }
+      }
+    }
+
+    if (!points.length) return null
+
+    // Chaque point agrégé : value[0]=min, value[1]=max, value[2]=avg
+    let totalMin = 0
+    let totalMax = 0
+    let totalAvg = 0
+
+    for (const point of points) {
+      totalMin += point.value?.[0]?.fpVal ?? 0
+      totalMax += point.value?.[1]?.fpVal ?? 0
+      totalAvg += point.value?.[2]?.fpVal ?? 0
+    }
+
+    const count = points.length
+    return {
+      min: Math.round(totalMin / count),
+      max: Math.round(totalMax / count),
+      avg: Math.round(totalAvg / count),
+    }
+  } catch (err) {
+    console.warn('[googleFit] fetchHeartRate :', err)
+    return null
+  }
+}
+
+/** Mapping des IDs d'activité Google Fit vers des noms lisibles */
+const ACTIVITY_NAMES = {
+  7: 'Vélo',
+  8: 'Course à pied',
+  9: 'Course sur tapis',
+  56: 'Sport',
+  72: 'Marche',
+  97: 'Musculation',
+  108: 'Yoga',
+  115: 'Natation',
+  119: 'HIIT',
+}
+
+/**
+ * Récupère les activités physiques pour une date donnée.
+ * @param {string} dateISO - Date au format YYYY-MM-DD
+ * @returns {Promise<Array<{ name: string, dureeMin: number, calories: number }>>}
+ */
+export async function fetchActivitiesForDate(dateISO) {
+  try {
+    const accessToken = await getAccessToken()
+    const startMs = dateToStartOfDayMs(dateISO)
+    const endMs = startMs + 24 * 60 * 60 * 1000
+
+    const body = {
+      aggregateBy: [{ dataTypeName: 'com.google.activity.summary' }],
+      bucketByActivityType: { minDurationMillis: 60000 },
+      startTimeMillis: startMs,
+      endTimeMillis: endMs,
+    }
+
+    const res = await fetch(
+      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    )
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        `Fitness API activités échouée (${res.status}) : ${err.error?.message || 'erreur inconnue'}`
+      )
+    }
+
+    const data = await res.json()
+    const buckets = data.bucket || []
+    const activities = []
+
+    for (const bucket of buckets) {
+      const activityType = bucket.activity ? parseInt(bucket.activity, 10) : null
+      const name = activityType != null
+        ? (ACTIVITY_NAMES[activityType] ?? activityIdToName(activityType))
+        : 'Activité'
+
+      const durationMs = parseInt(bucket.endTimeMillis, 10) - parseInt(bucket.startTimeMillis, 10)
+      const dureeMin = Math.round(durationMs / 60000)
+
+      let calories = 0
+      for (const dataset of bucket.dataset || []) {
+        for (const point of dataset.point || []) {
+          calories += point.value?.[0]?.fpVal ?? 0
+        }
+      }
+
+      activities.push({
+        name,
+        dureeMin,
+        calories: Math.round(calories),
+      })
+    }
+
+    return activities
+  } catch (err) {
+    console.warn('[googleFit] fetchActivitiesForDate :', err)
+    return []
+  }
+}
+
+/**
+ * Récupère toutes les données de la journée en parallèle.
+ * @param {string} dateISO - Date au format YYYY-MM-DD
+ * @returns {Promise<{ tdee: object|null, steps: object|null, heartRate: object|null, activities: Array }>}
+ */
+export async function fetchAllDayData(dateISO) {
+  const [tdee, steps, heartRate, activities] = await Promise.allSettled([
+    fetchDailyTDEE(dateISO),
+    fetchSteps(dateISO),
+    fetchHeartRate(dateISO),
+    fetchActivitiesForDate(dateISO),
+  ])
+  return {
+    tdee: tdee.status === 'fulfilled' ? tdee.value : null,
+    steps: steps.status === 'fulfilled' ? steps.value : null,
+    heartRate: heartRate.status === 'fulfilled' ? heartRate.value : null,
+    activities: activities.status === 'fulfilled' ? activities.value : [],
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Utilitaires privés
 // ---------------------------------------------------------------------------
 
