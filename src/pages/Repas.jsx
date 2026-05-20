@@ -132,7 +132,6 @@ Si tu ne peux pas analyser l'image, retourne: {"erreur": "Description du problè
 export default function Repas() {
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
-  const fileInputRef = useRef(null); // conservé pour handleCancel reset
   const navigate = useNavigate();
 
   // États catégorie + date/heure
@@ -162,6 +161,22 @@ export default function Repas() {
   useEffect(() => {
     loadMeals();
   }, [loadMeals]);
+
+  // Listener natif sur l'input caméra — contourne le bug Android avec capture="environment"
+  useEffect(() => {
+    const input = cameraInputRef.current;
+    if (!input) return;
+    const handler = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setAnalyseResult(null);
+      setAnalyseError(null);
+      setPreviewUrl(URL.createObjectURL(file));
+      lancerAnalyse(file);
+    };
+    input.addEventListener('change', handler);
+    return () => input.removeEventListener('change', handler);
+  }, []);
 
   // ── Sélection / capture de la photo ──────────────────────────────────────
 
@@ -221,7 +236,7 @@ export default function Repas() {
     setAnalyseResult(null);
     setAnalyseError(null);
     setPreviewUrl(null);
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (cameraInputRef.current)  cameraInputRef.current.value  = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   }
 
@@ -294,7 +309,15 @@ export default function Repas() {
         {/* Boutons (visible si pas d'analyse en cours / résultat affiché) */}
         {!analysing && !analyseResult && (
           <>
-            {/* Input unique — pas de capture pour fiabilité Android */}
+            {/* Input caméra — listener natif via useEffect */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+            />
+            {/* Input galerie */}
             <input
               ref={galleryInputRef}
               type="file"
@@ -303,35 +326,46 @@ export default function Repas() {
               onChange={handleFileChange}
             />
 
-            {/* Bouton photo principal */}
+            {/* Bouton caméra principal */}
             <button
               type="button"
-              onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
+              onClick={() => { if (cameraInputRef.current) { cameraInputRef.current.value = ''; cameraInputRef.current.click(); } }}
               className="flex flex-col items-center justify-center gap-3 w-full py-10
-                         rounded-3xl cursor-pointer
+                         rounded-3xl
                          bg-gradient-to-br from-violet-700 to-indigo-600
                          shadow-xl shadow-violet-900/40
                          hover:opacity-90 active:scale-95 transition-all duration-200"
             >
               <span className="text-5xl">📸</span>
               <span className="text-white font-semibold text-base tracking-wide">
-                Photo du repas
+                Photographier un repas
               </span>
               <span className="text-violet-200 text-xs">
-                Appareil photo ou galerie → l'IA analyse les calories
+                L'IA analysera les calories et protéines
               </span>
             </button>
 
-            {/* Bouton ajout manuel */}
-            <button
-              type="button"
-              onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
-              className="w-full py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
-                         text-gray-300 font-medium text-sm flex items-center justify-center gap-2
-                         hover:bg-[#22223b] active:scale-95 transition-all duration-200"
-            >
-              <span>➕</span> Ajouter manuellement
-            </button>
+            {/* Boutons secondaires */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
+                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
+                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
+                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
+              >
+                <span>🖼️</span> Galerie
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
+                className="flex-1 py-3.5 rounded-2xl border border-white/10 bg-[#1a1a2e]
+                           text-gray-300 font-medium text-sm flex items-center justify-center gap-2
+                           hover:bg-[#22223b] active:scale-95 transition-all duration-200"
+              >
+                <span>➕</span> Manuel
+              </button>
+            </div>
           </>
         )}
 
