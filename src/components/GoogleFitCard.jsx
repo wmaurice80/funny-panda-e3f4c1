@@ -127,20 +127,29 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, onRefresh }) 
       </div>
 
       {/* ── TDEE dynamique ──────────────────────────────────────────────────── */}
-      {tdeeFit > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-violet-400 text-3xl font-extrabold leading-none">
-            {fmtNum(tdeeFit)} kcal
-          </span>
-          <span className="text-xs text-gray-500">TDEE réel du jour (BMR + actif)</span>
-          {diff !== null && (
-            <span className={`text-xs font-semibold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {diff >= 0 ? '↑' : '↓'}{' '}
-              {diff >= 0 ? '+' : ''}{fmtNum(diff)} kcal vs votre base Garmin ({fmtNum(tdeeGarmin)})
+      <div className="flex flex-col gap-1">
+        {tdeeFit > 0 ? (
+          <>
+            <span className="text-violet-400 text-3xl font-extrabold leading-none">
+              {fmtNum(tdeeFit)} kcal
             </span>
-          )}
-        </div>
-      )}
+            <span className="text-xs text-gray-500">TDEE réel du jour (BMR + actif)</span>
+            {diff !== null && (
+              <span className={`text-xs font-semibold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {diff >= 0 ? '↑' : '↓'} {diff >= 0 ? '+' : ''}{fmtNum(diff)} kcal vs base Garmin ({fmtNum(tdeeGarmin)})
+              </span>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 bg-[#22223b] rounded-xl px-3 py-2.5">
+            <span className="text-lg">⏳</span>
+            <div>
+              <p className="text-xs font-semibold text-gray-300">TDEE en attente</p>
+              <p className="text-xs text-gray-500">Données Garmin pas encore reçues — base Garmin utilisée ({fmtNum(tdeeGarmin)} kcal)</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Grille métriques ────────────────────────────────────────────────── */}
       {(steps != null || heartRate != null) && (
