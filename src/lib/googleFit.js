@@ -60,11 +60,11 @@ export function buildAuthURL(codeChallenge) {
 
 /**
  * Lance le flux OAuth PKCE : génère les codes, stocke le verifier en
- * sessionStorage et redirige l'utilisateur vers Google.
+ * localStorage et redirige l'utilisateur vers Google.
  */
 export async function initiateGoogleAuth() {
   const { codeVerifier, codeChallenge } = await generatePKCE()
-  sessionStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
+  localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
   window.location.href = buildAuthURL(codeChallenge)
 }
 
@@ -73,7 +73,7 @@ export async function initiateGoogleAuth() {
  * @param {string} code - Code reçu en query param depuis Google
  */
 export async function handleCallback(code) {
-  const codeVerifier = sessionStorage.getItem(SS_CODE_VERIFIER)
+  const codeVerifier = localStorage.getItem(SS_CODE_VERIFIER)
   if (!codeVerifier) {
     throw new Error('code_verifier manquant en session — flux PKCE corrompu.')
   }
@@ -102,7 +102,7 @@ export async function handleCallback(code) {
 
   const data = await res.json()
   storeTokens(data)
-  sessionStorage.removeItem(SS_CODE_VERIFIER)
+  localStorage.removeItem(SS_CODE_VERIFIER)
 }
 
 /**
