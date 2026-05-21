@@ -90,11 +90,8 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
 
   // Écart TDEE Google Fit vs Garmin fixe
   const gfitActive = tdee?.active ?? 0;
-  const gfitBmr = tdee?.bmr ?? 0;
-  // tdeeEffectif vient du Dashboard (BMR profil + actif Google Fit)
-  const tdeeFit = tdeeEffectif > 0 && gfitActive > 0 ? tdeeEffectif : (tdee?.tdee ?? 0);
+  const tdeeFit = gfitActive > 0 ? gfitActive : 0;
   const diff = tdeeGarmin > 0 && tdeeFit > 0 ? tdeeFit - tdeeGarmin : null;
-  const bmrSource = gfitBmr > 0 ? 'Google Fit' : 'profil';
 
   // Max 3 activités
   const visibleActivities = Array.isArray(activities)
@@ -138,7 +135,7 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
               {fmtNum(tdeeFit)} kcal
             </span>
             <span className="text-xs text-gray-500">
-              TDEE du jour — BMR ({bmrSource}) + {fmtNum(gfitActive)} kcal actif Garmin
+              Dépense totale Garmin du jour (BMR inclus)
             </span>
             {diff !== null && (
               <span className={`text-xs font-semibold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>

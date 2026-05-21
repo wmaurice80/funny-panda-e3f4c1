@@ -426,13 +426,10 @@ export default function Dashboard() {
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
 
-  // TDEE dynamique : BMR profil + calories actives Google Fit (si dispo)
-  // calories.expended de Google Fit = calories actives Garmin (sans BMR)
+  // TDEE dynamique : calories.expended Google Fit = total Garmin (BMR inclus)
+  // On l'utilise directement sans re-ajouter le BMR
   const gfitActive = gfitData?.tdee?.active ?? 0;
-  const gfitBmr = gfitData?.tdee?.bmr ?? 0;
-  const tdeeEffectif = gfitActive > 0
-    ? (gfitBmr > 0 ? gfitBmr + gfitActive : bmr + gfitActive)  // BMR Google Fit ou BMR profil + actif
-    : tdee;  // fallback TDEE Garmin mesuré
+  const tdeeEffectif = gfitActive > 0 ? gfitActive : tdee;  // fallback TDEE Garmin mesuré
 
   const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
