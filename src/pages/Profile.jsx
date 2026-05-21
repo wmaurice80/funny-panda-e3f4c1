@@ -36,11 +36,11 @@ const ACTIVITY_KEYS = Object.keys(ACTIVITY_LABELS);
 
 /** Description succincte de chaque niveau d'activité (US-24) */
 const ACTIVITY_DESCRIPTIONS = {
-  sedentaire: 'Bureau toute la journée, peu ou pas de sport (ex. télétravail sédentaire)',
-  leger: '1 à 3 séances sport légères/semaine ou marche quotidienne',
-  modere: '3 à 5 séances sport/semaine (ex. salle de sport régulière)',
-  actif: 'Sport intense 6-7j/semaine ou travail physique (ex. maçon, sportif amateur)',
-  extreme: 'Athlète professionnel ou travail physique très intense quotidien',
+  sedentaire: 'Bureau toute la journée, quasi aucun déplacement — ~2 430 kcal/j hors sport',
+  leger:      'Marche quotidienne, courses, debout parfois — ~2 640 kcal/j hors sport',
+  modere:     'Télétravail actif, déplacements réguliers — ~2 800 kcal/j hors sport',
+  actif:      'Travail physique léger ou mode de vie très actif — ~3 040 kcal/j hors sport',
+  extreme:    'Travail physique intense quotidien (maçon, déménageur…) — ~3 450 kcal/j hors sport',
 };
 
 function Field({ label, error, children }) {

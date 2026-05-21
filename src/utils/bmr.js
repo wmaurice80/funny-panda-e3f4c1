@@ -31,13 +31,16 @@ export function calculateProteinGoal(profile) {
   return goal;
 }
 
-/** Facteurs d'activité selon le niveau */
+/**
+ * Facteurs d'activité hors sport (le sport est géré séparément via le toggle).
+ * Calibrés sur la dépense quotidienne sans séance.
+ */
 export const ACTIVITY_FACTORS = {
-  sedentaire: 1.2,
-  leger: 1.375,
-  modere: 1.55,
-  actif: 1.725,
-  extreme: 1.9,
+  sedentaire: 1.2,   // ~2430 kcal — bureau toute la journée, quasi aucun mouvement
+  leger:      1.3,   // ~2640 kcal — marche quotidienne, courses, debout parfois
+  modere:     1.38,  // ~2800 kcal — télétravail actif, déplacements réguliers
+  actif:      1.5,   // ~3040 kcal — travail physique léger ou très actif au quotidien
+  extreme:    1.7,   // ~3450 kcal — travail physique intense (maçon, déménageur…)
 };
 
 /** Labels lisibles pour l'interface */
