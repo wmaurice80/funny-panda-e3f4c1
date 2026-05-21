@@ -63,6 +63,10 @@ export default function Profile() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [showEstimation, setShowEstimation] = useState(false);
+  const [estTourTaille, setEstTourTaille] = useState('');
+  const [estTourCou, setEstTourCou] = useState('');
+  const [estTourHanches, setEstTourHanches] = useState('');
 
   useEffect(() => {
     getProfile().then((profile) => {
@@ -241,6 +245,101 @@ export default function Profile() {
           })() : (
             <p className="text-xs text-gray-600">Si renseigné, améliore la précision de l'objectif protéines</p>
           )}
+
+          {/* Estimation par méthode Navy */}
+          <button
+            type="button"
+            onClick={() => setShowEstimation(v => !v)}
+            className="text-xs text-violet-400 underline underline-offset-2 text-left hover:text-violet-300 transition-colors"
+          >
+            {showEstimation ? '▲ Masquer l\'estimation' : '▼ Estimer via mesures corporelles (méthode Navy)'}
+          </button>
+
+          {showEstimation && (() => {
+            const taille = estTourTaille ? Number(estTourTaille) : 0;
+            const cou = estTourCou ? Number(estTourCou) : 0;
+            const hanches = estTourHanches ? Number(estTourHanches) : 0;
+            const hauteur = form.taille ? Number(form.taille) : 0;
+            const isFemme = form.sexe === 'femme';
+
+            let bf = null;
+            if (hauteur > 0 && taille > 0 && cou > 0 && taille > cou) {
+              if (isFemme && hanches > 0 && taille + hanches > cou) {
+                bf = 495 / (1.29579 - 0.35004 * Math.log10(taille + hanches - cou) + 0.22100 * Math.log10(hauteur)) - 450;
+              } else if (!isFemme) {
+                bf = 495 / (1.0324 - 0.19077 * Math.log10(taille - cou) + 0.15456 * Math.log10(hauteur)) - 450;
+              }
+              if (bf !== null) bf = Math.max(5, Math.min(60, Math.round(bf * 10) / 10));
+            }
+
+            return (
+              <div className="flex flex-col gap-3 bg-[#0f0f1a] rounded-xl p-3 border border-violet-900/30">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                  Mesures en centimètres — à prendre le matin, à jeun
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Tour de taille (nombril)</label>
+                    <input
+                      className={inputClass}
+                      type="number" inputMode="decimal" placeholder="ex. 102" min="50" max="200"
+                      value={estTourTaille}
+                      onChange={e => setEstTourTaille(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Tour de cou</label>
+                    <input
+                      className={inputClass}
+                      type="number" inputMode="decimal" placeholder="ex. 40" min="20" max="70"
+                      value={estTourCou}
+                      onChange={e => setEstTourCou(e.target.value)}
+                    />
+                  </div>
+                  {isFemme && (
+                    <div className="flex flex-col gap-1 col-span-2">
+                      <label className="text-xs text-gray-400">Tour de hanches</label>
+                      <input
+                        className={inputClass}
+                        type="number" inputMode="decimal" placeholder="ex. 105" min="50" max="200"
+                        value={estTourHanches}
+                        onChange={e => setEstTourHanches(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {bf !== null ? (
+                  <div className="flex items-center justify-between bg-violet-900/20 border border-violet-700/30 rounded-xl px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-bold text-violet-300">{bf} % de masse grasse</p>
+                      {form.poids && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          LBM ≈ {(Number(form.poids) * (1 - bf / 100)).toFixed(1)} kg
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(f => ({ ...f, masseGrasse: String(bf) }));
+                        setShowEstimation(false);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-semibold
+                                 hover:bg-violet-500 active:scale-95 transition-all duration-150"
+                    >
+                      Utiliser
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-600 italic">
+                    {hauteur === 0 ? 'Renseigne ta taille d\'abord dans le profil.' : 'Entre tour de taille et tour de cou pour calculer.'}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Âge */}
