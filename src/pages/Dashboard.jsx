@@ -187,11 +187,31 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
  * ProteinCard — Sprint 7B
  * Affiche la progression des protéines journalières.
  */
+const PROTEIN_THRESHOLD = 75; // % minimum pour préserver la masse musculaire (1.6 g/kg LBM)
+
 function ProteinCard({ ingested, goal, delay }) {
-  const progressPct = goal > 0 ? Math.min(100, Math.round((ingested / goal) * 100)) : 0;
+  const rawPct = goal > 0 ? (ingested / goal) * 100 : 0;
+  const progressPct = Math.min(100, Math.round(rawPct));
   const isReached = ingested >= goal;
   const isOver = ingested > goal;
-  const overBy = ingested - goal;
+  const overBy = Math.round(ingested - goal);
+  const remaining = Math.round(goal - ingested);
+
+  // Couleur selon zone
+  const barColor = rawPct >= 100
+    ? 'bg-cyan-500'
+    : rawPct >= PROTEIN_THRESHOLD
+    ? 'bg-orange-400'
+    : 'bg-red-500';
+
+  const valueColor = rawPct >= 100
+    ? 'text-cyan-400'
+    : rawPct >= PROTEIN_THRESHOLD
+    ? 'text-orange-400'
+    : 'text-red-400';
+
+  // Position du marqueur 75% sur la barre
+  const thresholdLeft = `${PROTEIN_THRESHOLD}%`;
 
   return (
     <div
@@ -207,17 +227,34 @@ function ProteinCard({ ingested, goal, delay }) {
         {/* Valeur ingérée */}
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-400">Consommées</span>
-          <span className="text-lg font-extrabold text-cyan-400">
-            {ingested} g <span className="text-sm font-normal text-gray-500">/ {goal} g</span>
+          <span className={`text-lg font-extrabold ${valueColor}`}>
+            {Math.round(ingested)} g{' '}
+            <span className="text-sm font-normal text-gray-500">/ {goal} g</span>
           </span>
         </div>
 
-        {/* Barre de progression */}
-        <div className="w-full h-2 bg-[#22223b] rounded-full overflow-hidden">
+        {/* Barre de progression avec marqueur 75% */}
+        <div className="relative w-full h-3 bg-[#22223b] rounded-full overflow-visible">
+          {/* Barre remplie */}
           <div
-            className="h-full rounded-full transition-all duration-500 bg-cyan-500"
+            className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${barColor}`}
             style={{ width: `${progressPct}%` }}
           />
+          {/* Marqueur seuil 75% */}
+          <div
+            className="absolute top-[-3px] h-[18px] w-[2px] bg-white/40 rounded-full"
+            style={{ left: thresholdLeft }}
+            title="Seuil minimum préservation musculaire"
+          />
+        </div>
+
+        {/* Légende seuil */}
+        <div className="flex justify-between items-center text-[10px] text-gray-600">
+          <span>0 g</span>
+          <span className={rawPct < PROTEIN_THRESHOLD ? 'text-red-500 font-semibold' : 'text-gray-600'}>
+            ⚠ seuil muscu {Math.round(goal * PROTEIN_THRESHOLD / 100)} g
+          </span>
+          <span>{goal} g</span>
         </div>
 
         {/* Message contextuel */}
@@ -226,12 +263,16 @@ function ProteinCard({ ingested, goal, delay }) {
             Dépassé de +{overBy} g
           </p>
         ) : isReached ? (
-          <p className="text-sm font-bold text-center text-emerald-400">
+          <p className="text-sm font-bold text-center text-cyan-400">
             Objectif atteint ✓
           </p>
+        ) : rawPct < PROTEIN_THRESHOLD ? (
+          <p className="text-sm font-bold text-center text-red-400">
+            ⚠ Risque catabolisme — encore {remaining} g
+          </p>
         ) : (
-          <p className="text-xs text-gray-600 text-center">
-            {progressPct}% de l&apos;objectif journalier
+          <p className="text-xs text-gray-500 text-center">
+            {progressPct}% — encore {remaining} g
           </p>
         )}
       </div>
