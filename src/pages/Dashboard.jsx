@@ -114,6 +114,16 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
           </span>
         </div>
 
+        {/* Détail sport si activité ce jour */}
+        {totalSport > 0 && (
+          <div className="flex justify-between items-center pl-4">
+            <span className="text-xs text-gray-600">dont sport</span>
+            <span className="text-xs font-semibold text-orange-400">
+              +{totalSport.toLocaleString('fr-FR')} kcal
+            </span>
+          </div>
+        )}
+
         {/* Calories ingérées */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
