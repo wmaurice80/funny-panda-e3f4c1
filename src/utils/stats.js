@@ -38,11 +38,11 @@ export async function getMonthlyData(year, month, tdee) {
       getActivitiesForDate(date),
     ]).then(([meals, acts]) => {
       const ingested = meals.reduce((s, m) => s + (m.totalCalories ?? 0), 0);
+      const proteines = meals.reduce((s, m) => s + (m.totalProteines ?? 0), 0);
       const sport = acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0);
-      // Pour les jours futurs (pas encore passés), burned = 0 si pas de données
       const isFuture = date > today;
       const burned = isFuture && ingested === 0 && sport === 0 ? 0 : tdee + sport;
-      return { day, date, ingested, burned: isFuture ? 0 : burned };
+      return { day, date, ingested, proteines, burned: isFuture ? 0 : burned };
     });
   });
 

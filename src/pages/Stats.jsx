@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile, getWeights } from '../db';
-import { calculateBMR, calculateCible, getEffectiveTDEE } from '../utils/bmr';
+import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE } from '../utils/bmr';
 import { getMonthlyData, getMonthBilan, getWeeklyTrends } from '../utils/stats';
 import MonthlyChart from '../components/MonthlyChart';
 import MonthBilan from '../components/MonthBilan';
@@ -54,6 +54,8 @@ export default function Stats() {
   const [tdee, setTdee] = useState(null);
   const [cible, setCible] = useState(null);
   const [objectif, setObjectif] = useState('maintien');
+  const [proteinGoal, setProteinGoal] = useState(0);
+  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [monthlyData, setMonthlyData] = useState([]);
   const [bilan, setBilan] = useState(null);
   const [trends, setTrends] = useState([]);
@@ -76,8 +78,12 @@ export default function Stats() {
       setTdee(computedTdee);
       setCible(computedCible);
       setObjectif(profile.objectif ?? 'maintien');
+      setProteinGoal(calculateProteinGoal(profile));
     })();
   }, []);
+
+  // Réinitialise le navigateur journalier au jour le plus récent quand le mois change
+  useEffect(() => { setSelectedDayIdx(0); }, [year, month]);
 
   // Charge les données statistiques dès que cible / mois / année changent
   const loadStats = useCallback(async () => {
@@ -237,67 +243,101 @@ export default function Stats() {
           {/* Tendances hebdomadaires */}
           <WeeklyTrends trends={trends} />
 
-          {/* Bilan par jour */}
+          {/* Bilan journalier — navigateur */}
           {(() => {
-            const joursAvecDonnees = monthlyData
-              .filter(d => d.ingested > 0 || d.burned > 0)
+            const jours = monthlyData
+              .filter(d => d.ingested > 0)
               .slice()
-              .sort((a, b) => b.day - a.day);
+              .sort((a, b) => b.day - a.day); // plus récent en premier
+
+            if (jours.length === 0) return (
+              <div className="bg-[#1a1a2e] rounded-2xl p-4 shadow-xl">
+                <p className="text-gray-600 text-sm italic text-center py-4">
+                  Aucune donnée pour ce mois
+                </p>
+              </div>
+            );
+
+            const idx = Math.min(selectedDayIdx, jours.length - 1);
+            const d = jours[idx];
+            const bilanNet = d.ingested - (cible ?? 0);
+            const isOk = bilanNet <= 0;
+            const isWarn = bilanNet > 0 && bilanNet <= 200;
+            const bilanColor = isOk ? 'text-emerald-400' : isWarn ? 'text-orange-400' : 'text-red-400';
+            const bilanIcon = isOk ? '✓' : isWarn ? '⚠' : '✗';
 
             return (
               <div className="bg-[#1a1a2e] rounded-2xl p-4 shadow-xl">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base">📅</span>
-                  <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                    Bilan par jour
-                  </span>
+                {/* Header navigateur */}
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => setSelectedDayIdx(i => Math.min(i + 1, jours.length - 1))}
+                    disabled={idx >= jours.length - 1}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150
+                      ${idx >= jours.length - 1 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white hover:bg-white/10 active:scale-90'}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+
+                  <div className="text-center">
+                    <p className="text-white font-semibold text-sm">
+                      {fmtDateLong(d.date)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {idx + 1} / {jours.length} jours trackés
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedDayIdx(i => Math.max(i - 1, 0))}
+                    disabled={idx <= 0}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150
+                      ${idx <= 0 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-white hover:bg-white/10 active:scale-90'}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
                 </div>
-                {joursAvecDonnees.length === 0 ? (
-                  <p className="text-gray-600 text-sm italic text-center py-4">
-                    Aucune donnée pour ce mois
-                  </p>
-                ) : (
-                  <div className={joursAvecDonnees.length > 10 ? 'max-h-80 overflow-y-auto' : ''}>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-gray-500 border-b border-white/5">
-                          <th className="text-left pb-2 font-medium">Jour</th>
-                          <th className="text-right pb-2 font-medium">Ingérées</th>
-                          <th className="text-right pb-2 font-medium">Dépensées</th>
-                          <th className="text-right pb-2 font-medium">Bilan net</th>
-                          <th className="text-center pb-2 font-medium">État</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {joursAvecDonnees.map(d => {
-                          const bilan = d.ingested - d.burned;
-                          const isOk = bilan <= 0;
-                          const isWarn = bilan > 0 && bilan <= 200;
-                          const color = isOk ? 'text-emerald-400' : isWarn ? 'text-orange-400' : 'text-red-400';
-                          const indicateur = isOk ? '✓' : isWarn ? '⚠' : '✗';
-                          const indicateurColor = isOk ? 'text-emerald-400' : isWarn ? 'text-orange-400' : 'text-red-400';
-                          return (
-                            <tr key={d.day} className="border-b border-white/5 last:border-0">
-                              <td className="py-1.5 text-gray-300 font-medium">
-                                {d.day} {MOIS[month - 1].toLowerCase()}
-                              </td>
-                              <td className="py-1.5 text-right text-emerald-400">
-                                {d.ingested.toLocaleString('fr-FR')}
-                              </td>
-                              <td className="py-1.5 text-right text-violet-400">
-                                {d.burned.toLocaleString('fr-FR')}
-                              </td>
-                              <td className={`py-1.5 text-right font-semibold ${color}`}>
-                                {bilan > 0 ? '+' : ''}{bilan.toLocaleString('fr-FR')}
-                              </td>
-                              <td className={`py-1.5 text-center font-bold ${indicateurColor}`}>
-                                {indicateur}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+
+                {/* Données du jour — 3 colonnes */}
+                <div className="grid grid-cols-3 gap-3 text-center mb-4">
+                  <div className="bg-[#0f0f1a] rounded-xl py-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Ingérées</p>
+                    <p className="text-lg font-extrabold text-emerald-400">
+                      {d.ingested.toLocaleString('fr-FR')}
+                    </p>
+                    <p className="text-[10px] text-gray-600">kcal</p>
+                  </div>
+                  <div className="bg-[#0f0f1a] rounded-xl py-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Cible</p>
+                    <p className="text-lg font-extrabold text-violet-400">
+                      {(cible ?? 0).toLocaleString('fr-FR')}
+                    </p>
+                    <p className="text-[10px] text-gray-600">kcal</p>
+                  </div>
+                  <div className="bg-[#0f0f1a] rounded-xl py-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Bilan</p>
+                    <p className={`text-lg font-extrabold ${bilanColor}`}>
+                      {bilanNet > 0 ? '+' : ''}{bilanNet.toLocaleString('fr-FR')}
+                    </p>
+                    <p className={`text-[10px] font-bold ${bilanColor}`}>{bilanIcon}</p>
+                  </div>
+                </div>
+
+                {/* Protéines */}
+                {proteinGoal > 0 && (
+                  <div className="border-t border-white/5 pt-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">💪 Protéines</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${d.proteines >= proteinGoal ? 'text-cyan-400' : 'text-gray-300'}`}>
+                        {Math.round(d.proteines)} g
+                      </span>
+                      <span className="text-xs text-gray-600">/ {proteinGoal} g</span>
+                      {d.proteines >= proteinGoal && <span className="text-xs text-cyan-400">✓</span>}
+                    </div>
                   </div>
                 )}
               </div>
