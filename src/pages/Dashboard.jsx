@@ -59,7 +59,7 @@ const OBJECTIF_LABEL = {
  * Badge cible coloré selon objectif.
  * Phrase contextuelle sous le bilan net.
  */
-function BilanCard({ tdee, cible, objectif, caloriesIngerees, delay }) {
+function BilanCard({ tdee, cible, objectif, caloriesIngerees, jourSport, delay }) {
   const bilan = caloriesIngerees - cible; // négatif = dans la cible, positif = dépassé
   const isOk = bilan <= 0;
   const isWarning = bilan > 0 && bilan <= 200;
@@ -98,6 +98,19 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, delay }) {
           </div>
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${style.badge}`}>
             {OBJECTIF_LABEL[objectif] ?? '⚖️ Maintien'} — {cible.toLocaleString('fr-FR')} kcal
+          </span>
+        </div>
+
+        {/* Dépense estimée (TDEE selon toggle) */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-violet-400" />
+            <span className="text-sm text-gray-400">
+              Dépense {jourSport ? '🏋️' : '😴'}
+            </span>
+          </div>
+          <span className="font-bold text-violet-400">
+            {tdee.toLocaleString('fr-FR')} kcal
           </span>
         </div>
 
@@ -518,7 +531,7 @@ export default function Dashboard() {
           cible={cible}
           objectif={objectif}
           caloriesIngerees={caloriesIngerees}
-          totalSport={0}
+          jourSport={jourSport}
           delay="120ms"
         />
         <ProteinCard
