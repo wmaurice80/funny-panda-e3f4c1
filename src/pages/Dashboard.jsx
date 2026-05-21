@@ -507,8 +507,8 @@ export default function Dashboard() {
             <p className="text-sm font-semibold text-white">Jour de sport</p>
             <p className="text-xs text-gray-500 mt-0.5">
               {jourSport
-                ? `TDEE sport : ${(profile.tdeeSport || profile.tdeeMesure || bmr).toLocaleString('fr-FR')} kcal`
-                : `TDEE repos : ${(profile.tdeeMesure || bmr).toLocaleString('fr-FR')} kcal`}
+                ? `Sport : ${tdeeEffectif.toLocaleString('fr-FR')} kcal dépensés`
+                : `Repos : ${tdeeEffectif.toLocaleString('fr-FR')} kcal dépensés`}
             </p>
           </div>
           <button
