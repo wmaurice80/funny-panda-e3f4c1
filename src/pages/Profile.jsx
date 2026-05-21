@@ -16,6 +16,7 @@ const INITIAL = {
   objectif: 'maintien',
   vitesseObjectif: 'moderee',
   tdeeMesure: '',
+  tdeeSport: '',
   masseGrasse: '',
 };
 
@@ -79,6 +80,7 @@ export default function Profile() {
           objectif: profile.objectif ?? 'maintien',
           vitesseObjectif: profile.vitesseObjectif ?? 'moderee',
           tdeeMesure: profile.tdeeMesure ? String(profile.tdeeMesure) : '',
+          tdeeSport: profile.tdeeSport ? String(profile.tdeeSport) : '',
           masseGrasse: profile.masseGrasse ? String(profile.masseGrasse) : '',
         });
       }
@@ -118,6 +120,7 @@ export default function Profile() {
       objectif: form.objectif,
       vitesseObjectif: form.vitesseObjectif,
       tdeeMesure: form.tdeeMesure ? Number(form.tdeeMesure) : 0,
+      tdeeSport: form.tdeeSport ? Number(form.tdeeSport) : 0,
       masseGrasse: form.masseGrasse ? Number(form.masseGrasse) : 0,
     });
     setSaving(false);
@@ -328,6 +331,31 @@ export default function Profile() {
             <p className="text-xs font-semibold text-emerald-400">✓ Utilisé comme base de calcul</p>
           ) : (
             <p className="text-xs text-gray-600">Calcul automatique actif (Mifflin-St Jeor)</p>
+          )}
+        </div>
+
+        {/* TDEE jour de sport */}
+        <div className="bg-[#0d1117] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-400">🏋️ TDEE mesuré — jours de sport</p>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Dépense calorique Garmin les jours avec séance (moyenne mesurée). Activé via le toggle "Jour de sport" sur l'accueil.
+            </p>
+          </div>
+          <input
+            className={inputClass}
+            type="number"
+            inputMode="numeric"
+            placeholder="ex. 3 500"
+            min="500"
+            max="8000"
+            value={form.tdeeSport}
+            onChange={set('tdeeSport')}
+          />
+          {form.tdeeSport && Number(form.tdeeSport) > 0 ? (
+            <p className="text-xs font-semibold text-violet-400">✓ Utilisé les jours de sport</p>
+          ) : (
+            <p className="text-xs text-gray-600">Utilisera tdeeMesure si non renseigné</p>
           )}
         </div>
 

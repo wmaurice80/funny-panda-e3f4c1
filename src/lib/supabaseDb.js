@@ -35,6 +35,7 @@ export async function pushProfile(profile) {
       objectif: profile.objectif ?? null,
       vitesse_objectif: profile.vitesseObjectif ?? null,
       tdee_mesure: profile.tdeeMesure ?? null,
+      tdee_sport: profile.tdeeSport ?? null,
       masse_grasse: profile.masseGrasse ?? null,
     }
 
@@ -80,6 +81,7 @@ export async function pullProfile() {
       objectif: data.objectif,
       vitesseObjectif: data.vitesse_objectif,
       tdeeMesure: data.tdee_mesure,
+      tdeeSport: data.tdee_sport,
       masseGrasse: data.masse_grasse,
     }
   } catch (error) {

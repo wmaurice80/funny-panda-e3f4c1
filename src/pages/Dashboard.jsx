@@ -59,13 +59,11 @@ const OBJECTIF_LABEL = {
  * Badge cible coloré selon objectif.
  * Phrase contextuelle sous le bilan net.
  */
-function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay }) {
-  const totalDepense = cible + totalSport;
-  const bilan = caloriesIngerees - totalDepense; // négatif = dans la cible, positif = dépassé
+function BilanCard({ tdee, cible, objectif, caloriesIngerees, delay }) {
+  const bilan = caloriesIngerees - cible; // négatif = dans la cible, positif = dépassé
   const isOk = bilan <= 0;
   const isWarning = bilan > 0 && bilan <= 200;
 
-  // Barre : ingérées vs cible seule (sans sport)
   const progressPct = cible > 0
     ? Math.min(100, Math.round((caloriesIngerees / cible) * 100))
     : 0;
@@ -73,7 +71,7 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
   const style = OBJECTIF_STYLE[objectif] ?? OBJECTIF_STYLE.maintien;
   const bilanColor = isOk ? 'text-emerald-400' : isWarning ? 'text-orange-400' : 'text-red-400';
 
-  const deficitReel = tdee - caloriesIngerees; // déficit réel vs TDEE Garmin
+  const deficitReel = tdee - caloriesIngerees;
   const resteOuDepasse = Math.abs(bilan);
   const phraseContextuelle = isOk
     ? `Il te reste ${resteOuDepasse.toLocaleString('fr-FR')} kcal`
@@ -114,28 +112,6 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
           </span>
         </div>
 
-        {/* Calories sport — affichées seulement si > 0 */}
-        {totalSport > 0 && (
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-orange-400" />
-              <span className="text-sm text-gray-400">Sport</span>
-            </div>
-            <span className="font-bold text-orange-400">-{totalSport.toLocaleString('fr-FR')} kcal</span>
-          </div>
-        )}
-
-        {/* Total dépensé (séparateur) */}
-        {totalSport > 0 && (
-          <div className="flex justify-between items-center border-t border-white/5 pt-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-gray-500" />
-              <span className="text-sm text-gray-500">Total dépensé</span>
-            </div>
-            <span className="font-semibold text-gray-400">{totalDepense.toLocaleString('fr-FR')} kcal</span>
-          </div>
-        )}
-
         {/* Bilan net */}
         <div className="border-t border-white/10 pt-3 flex justify-between items-center">
           <div className="flex flex-col">
@@ -156,7 +132,7 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
         {caloriesIngerees > 0 && tdee > 0 && (
           <div className={`rounded-xl px-3 py-2 flex items-center justify-between text-xs
             ${deficitReel >= 0 ? 'bg-emerald-900/20 border border-emerald-700/30' : 'bg-red-900/20 border border-red-700/30'}`}>
-            <span className="text-gray-400">Déficit réel vs TDEE Garmin</span>
+            <span className="text-gray-400">Déficit réel vs TDEE</span>
             <span className={`font-bold ${deficitReel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {deficitReel >= 0 ? '-' : '+'}{Math.abs(deficitReel).toLocaleString('fr-FR')} kcal
             </span>
@@ -318,6 +294,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [gfitData, setGfitData] = useState(null);
   const [gfitLoading, setGfitLoading] = useState(false);
+  const [jourSport, setJourSport] = useState(
+    () => localStorage.getItem(`sport_day_${todayISO()}`) === 'true'
+  );
 
   const loadData = useCallback(async () => {
     const today = todayISO();
@@ -426,14 +405,15 @@ export default function Dashboard() {
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
 
-  // TDEE dynamique : calories.expended Google Fit = total Garmin (BMR inclus)
-  // Utiliser seulement si > BMR (données complètes) sinon fallback TDEE Garmin
-  const gfitActive = gfitData?.tdee?.active ?? 0;
-  const tdeeEffectif = (gfitActive > 0 && gfitActive > bmr) ? gfitActive : tdee;
-
-  // La cible ne peut jamais être inférieure au BMR
-  const cibleBrute = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
-  const cible = Math.max(cibleBrute, bmr);
+  // TDEE selon le type de journée (toggle "Jour de sport")
+  // Priorité : tdeeSport > tdeeMesure > calcul Mifflin × facteur activité
+  const tdeeBase = jourSport && profile.tdeeSport > 0
+    ? profile.tdeeSport
+    : profile.tdeeMesure > 0
+      ? profile.tdeeMesure
+      : tdee;
+  const tdeeEffectif = tdeeBase;
+  const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
   const proteinGoal = calculateProteinGoal(profile);
 
@@ -502,20 +482,43 @@ export default function Dashboard() {
           icon="⚡"
           color="text-violet-400"
           delay="60ms"
-          badge={
-            (gfitData?.tdee?.tdee ?? 0) > 0
-              ? '🏃 Google Fit'
-              : profile.tdeeMesure > 0
-              ? '⌚ Garmin'
-              : undefined
-          }
+          badge={jourSport ? '🏋️ Sport' : profile.tdeeMesure > 0 ? '⌚ Repos' : undefined}
         />
+
+        {/* Toggle Jour de sport */}
+        <div
+          className="bg-[#1a1a2e] rounded-2xl px-5 py-4 shadow-xl flex items-center justify-between animate-fade-in-up"
+          style={{ animationDelay: '90ms' }}
+        >
+          <div>
+            <p className="text-sm font-semibold text-white">Jour de sport</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {jourSport
+                ? `TDEE sport : ${(profile.tdeeSport || profile.tdeeMesure || bmr).toLocaleString('fr-FR')} kcal`
+                : `TDEE repos : ${(profile.tdeeMesure || bmr).toLocaleString('fr-FR')} kcal`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !jourSport;
+              setJourSport(next);
+              localStorage.setItem(`sport_day_${todayISO()}`, String(next));
+            }}
+            className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none
+              ${jourSport ? 'bg-violet-600' : 'bg-[#22223b] border border-white/10'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300
+              ${jourSport ? 'translate-x-7' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
         <BilanCard
           tdee={tdeeEffectif}
           cible={cible}
           objectif={objectif}
           caloriesIngerees={caloriesIngerees}
-          totalSport={totalSport}
+          totalSport={0}
           delay="120ms"
         />
         <ProteinCard
