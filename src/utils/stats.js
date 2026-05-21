@@ -101,11 +101,14 @@ export async function getWeeklyTrends(year, month, tdee) {
   const today = new Date().toISOString().slice(0, 10);
 
   // Découper les jours en semaines (S1 = jours 1-7, S2 = 8-14, S3 = 15-21, S4 = 22+)
+  const lastDay = daysInMonth(year, month);
+  const MOIS_COURT = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+  const m = MOIS_COURT[month - 1];
   const weeks = [
-    { week: 1, label: 'S1', days: data.filter(d => d.day >= 1 && d.day <= 7) },
-    { week: 2, label: 'S2', days: data.filter(d => d.day >= 8 && d.day <= 14) },
-    { week: 3, label: 'S3', days: data.filter(d => d.day >= 15 && d.day <= 21) },
-    { week: 4, label: 'S4', days: data.filter(d => d.day >= 22) },
+    { week: 1, label: `1–7 ${m}`,         days: data.filter(d => d.day >= 1  && d.day <= 7)  },
+    { week: 2, label: `8–14 ${m}`,        days: data.filter(d => d.day >= 8  && d.day <= 14) },
+    { week: 3, label: `15–21 ${m}`,       days: data.filter(d => d.day >= 15 && d.day <= 21) },
+    { week: 4, label: `22–${lastDay} ${m}`, days: data.filter(d => d.day >= 22) },
   ];
 
   return weeks

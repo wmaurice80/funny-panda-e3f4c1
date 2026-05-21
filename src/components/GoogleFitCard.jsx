@@ -138,58 +138,40 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
         )}
       </div>
 
-      {/* ── TDEE dynamique ──────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1">
-        {tdeeFit > 0 ? (
-          <>
-            <span className="text-violet-400 text-3xl font-extrabold leading-none">
-              {fmtNum(tdeeFit)} kcal
-            </span>
-            <span className="text-xs text-gray-500">
-              Dépense totale Garmin du jour (BMR inclus)
-            </span>
-            {diff !== null && (
-              <span className={`text-xs font-semibold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {diff >= 0 ? '↑' : '↓'} {diff >= 0 ? '+' : ''}{fmtNum(diff)} kcal vs base Garmin ({fmtNum(tdeeGarmin)})
-              </span>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center gap-2 bg-[#22223b] rounded-xl px-3 py-2.5">
-            <span className="text-lg">⏳</span>
-            <div>
-              <p className="text-xs font-semibold text-gray-300">TDEE en attente</p>
-              <p className="text-xs text-gray-500">Ouvre Garmin Connect sur ton téléphone pour forcer la sync, puis appuie sur ↻</p>
-              <p className="text-xs text-gray-500 mt-0.5">base Garmin utilisée ({fmtNum(tdeeGarmin)} kcal)</p>
-            </div>
+      {/* ── Grille métriques : pas + cal détectées + FC ─────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Pas */}
+        <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-base">👟</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Pas</span>
           </div>
-        )}
-      </div>
+          <span className="text-cyan-400 text-xl font-extrabold leading-none">
+            {steps?.steps > 0 ? fmtNum(steps.steps) : '—'}
+          </span>
+          <span className="text-xs text-gray-600">pas aujourd'hui</span>
+        </div>
 
-      {/* ── Grille métriques ────────────────────────────────────────────────── */}
-      {(steps != null || heartRate != null) && (
-        <div className="grid grid-cols-2 gap-3">
-          {/* Pas */}
-          {steps != null && (
-            <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-base">👟</span>
-                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Pas</span>
-              </div>
-              <span className="text-cyan-400 text-xl font-extrabold leading-none">
-                {fmtNum(steps.steps)}
-              </span>
-              <span className="text-xs text-gray-600">pas</span>
+        {/* Calories détectées (téléphone — info) */}
+        <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-base">🔥</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Cal. actives</span>
+          </div>
+          <span className="text-orange-400 text-xl font-extrabold leading-none">
+            {tdeeFit > 0 ? fmtNum(tdeeFit) : '—'}
+          </span>
+          <span className="text-xs text-gray-600">kcal détectées (info)</span>
+        </div>
+
+        {/* Fréquence cardiaque */}
+        {heartRate != null && (
+          <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5 col-span-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-base">❤️</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Fréquence cardiaque</span>
             </div>
-          )}
-
-          {/* Fréquence cardiaque */}
-          {heartRate != null && (
-            <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-base">❤️</span>
-                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">FC</span>
-              </div>
+            <div className="flex items-center gap-3">
               <span className="text-red-400 text-xl font-extrabold leading-none">
                 moy. {fmtNum(heartRate.avg)} bpm
               </span>
@@ -197,9 +179,9 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
                 <span className="text-xs text-gray-500">max {fmtNum(heartRate.max)} bpm</span>
               )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* ── Activités du jour ───────────────────────────────────────────────── */}
       {visibleActivities.length > 0 && (
