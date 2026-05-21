@@ -385,59 +385,37 @@ export async function fetchDailyTDEE(dateISO) {
     const startMs = dateToStartOfDayMs(dateISO)
     const endMs = startMs + 24 * 60 * 60 * 1000
 
-    const body = {
-      aggregateBy: [
-        { dataTypeName: 'com.google.calories.expended' },
-        { dataTypeName: 'com.google.calories.bmr' },
-      ],
-      bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
-      startTimeMillis: startMs,
-      endTimeMillis: endMs,
-    }
-
-    const res = await fetch(
-      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
-      {
+    // Requêtes séparées pour éviter les ambiguïtés de parsing
+    const queryOne = async (dataTypeName) => {
+      const res = await fetch('https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    )
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(
-        `Fitness API TDEE échouée (${res.status}) : ${err.error?.message || 'erreur inconnue'}`
-      )
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aggregateBy: [{ dataTypeName }],
+          bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+          startTimeMillis: startMs,
+          endTimeMillis: endMs,
+        }),
+      })
+      if (!res.ok) return 0
+      const data = await res.json()
+      let total = 0
+      for (const bucket of data.bucket || [])
+        for (const dataset of bucket.dataset || [])
+          for (const point of dataset.point || [])
+            total += point.value?.[0]?.fpVal ?? 0
+      return Math.round(total)
     }
 
-    const data = await res.json()
-    const buckets = data.bucket || []
-
-    let active = 0
-    let bmr = 0
-
-    for (const bucket of buckets) {
-      for (const dataset of bucket.dataset || []) {
-        const typeName = dataset.dataSourceId || ''
-        for (const point of dataset.point || []) {
-          const val = point.value?.[0]?.fpVal ?? 0
-          if (typeName.includes('calories.bmr')) {
-            bmr += val
-          } else {
-            active += val
-          }
-        }
-      }
-    }
+    const [active, bmr] = await Promise.all([
+      queryOne('com.google.calories.expended'),
+      queryOne('com.google.calories.bmr'),
+    ])
 
     if (active === 0 && bmr === 0) return null
 
-    const bmrRounded = Math.round(bmr)
-    const activeRounded = Math.round(active)
+    const bmrRounded = bmr
+    const activeRounded = active
     // Si BMR Google Fit = 0, le Dashboard utilisera le BMR du profil comme base
     return {
       tdee: bmrRounded + activeRounded,
