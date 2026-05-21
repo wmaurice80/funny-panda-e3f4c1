@@ -3,7 +3,6 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  ReferenceLine,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,20 +16,12 @@ const MOIS = [
   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
 ];
 
-/** Couleur de la ligne cible selon l'objectif */
-const CIBLE_COLOR = {
-  perte: '#ef4444',
-  maintien: '#34d399',
-  prise: '#60a5fa',
-};
-
-function CustomTooltip({ active, payload, label, month, year, cible, objectif }) {
+function CustomTooltip({ active, payload, label, month, year }) {
   if (!active || !payload || payload.length === 0) return null;
 
   const nomMois = MOIS[(month ?? 1) - 1];
   const ingested = payload.find(p => p.dataKey === 'ingested');
   const burned = payload.find(p => p.dataKey === 'burned');
-  const cibleColor = CIBLE_COLOR[objectif] ?? CIBLE_COLOR.maintien;
 
   return (
     <div className="bg-[#12122a] border border-white/10 rounded-xl p-3 text-sm shadow-2xl">
@@ -47,11 +38,6 @@ function CustomTooltip({ active, payload, label, month, year, cible, objectif })
           ⚡ {burned.value.toLocaleString('fr-FR')} kcal dépensées
         </p>
       )}
-      {cible > 0 && (
-        <p style={{ color: cibleColor }}>
-          🎯 {cible.toLocaleString('fr-FR')} kcal cible
-        </p>
-      )}
       {(!ingested || ingested.value === 0) && (!burned || burned.value === 0) && (
         <p className="text-gray-600 italic">Aucune donnée</p>
       )}
@@ -61,11 +47,10 @@ function CustomTooltip({ active, payload, label, month, year, cible, objectif })
 
 /**
  * MonthlyChart — graphique linéaire calories ingérées vs dépensées
- * Affiche une ligne pointillée "Cible" si cible > 0.
  *
- * @param {{ data: Array<{day,date,ingested,burned}>, month: number, year: number, cible?: number, objectif?: string }} props
+ * @param {{ data: Array<{day,date,ingested,burned}>, month: number, year: number }} props
  */
-export default function MonthlyChart({ data, month, year, cible, objectif }) {
+export default function MonthlyChart({ data, month, year }) {
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-[220px] text-gray-600 text-sm italic">
@@ -110,7 +95,7 @@ export default function MonthlyChart({ data, month, year, cible, objectif }) {
           tickFormatter={(v) => v === 0 ? '' : `${(v / 1000).toFixed(1)}k`}
         />
         <Tooltip
-          content={<CustomTooltip month={month} year={year} cible={cible} objectif={objectif} />}
+          content={<CustomTooltip month={month} year={year} />}
           cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
         />
         <Legend
@@ -120,24 +105,9 @@ export default function MonthlyChart({ data, month, year, cible, objectif }) {
           formatter={(value) => {
             if (value === 'ingested') return 'Ingérées';
             if (value === 'burned') return 'Dépensées';
-            return 'Cible';
+            return value;
           }}
         />
-        {/* Ligne pointillée Cible */}
-        {cible > 0 && (
-          <ReferenceLine
-            y={cible}
-            stroke={CIBLE_COLOR[objectif] ?? CIBLE_COLOR.maintien}
-            strokeDasharray="5 4"
-            strokeWidth={1.5}
-            label={{
-              value: 'Cible',
-              position: 'insideTopRight',
-              fill: CIBLE_COLOR[objectif] ?? CIBLE_COLOR.maintien,
-              fontSize: 10,
-            }}
-          />
-        )}
         <Line
           type="monotone"
           dataKey="ingested"

@@ -116,6 +116,16 @@ export function isConnected() {
 }
 
 /**
+ * Vérifie si un refresh_token existe, même si l'access_token est expiré.
+ * Utilisé pour maintenir l'affichage de la GoogleFitCard sans re-demander
+ * une connexion complète.
+ * @returns {boolean}
+ */
+export function hasRefreshToken() {
+  return !!localStorage.getItem('gfit_refresh_token')
+}
+
+/**
  * Retourne un access_token valide. Si expiré, tente un refresh.
  * @returns {Promise<string>}
  */

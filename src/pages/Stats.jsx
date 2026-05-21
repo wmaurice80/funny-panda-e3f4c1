@@ -237,6 +237,73 @@ export default function Stats() {
           {/* Tendances hebdomadaires */}
           <WeeklyTrends trends={trends} />
 
+          {/* Bilan par jour */}
+          {(() => {
+            const joursAvecDonnees = monthlyData
+              .filter(d => d.ingested > 0 || d.burned > 0)
+              .slice()
+              .sort((a, b) => b.day - a.day);
+
+            return (
+              <div className="bg-[#1a1a2e] rounded-2xl p-4 shadow-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-base">📅</span>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                    Bilan par jour
+                  </span>
+                </div>
+                {joursAvecDonnees.length === 0 ? (
+                  <p className="text-gray-600 text-sm italic text-center py-4">
+                    Aucune donnée pour ce mois
+                  </p>
+                ) : (
+                  <div className={joursAvecDonnees.length > 10 ? 'max-h-80 overflow-y-auto' : ''}>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-gray-500 border-b border-white/5">
+                          <th className="text-left pb-2 font-medium">Jour</th>
+                          <th className="text-right pb-2 font-medium">Ingérées</th>
+                          <th className="text-right pb-2 font-medium">Dépensées</th>
+                          <th className="text-right pb-2 font-medium">Bilan net</th>
+                          <th className="text-center pb-2 font-medium">État</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {joursAvecDonnees.map(d => {
+                          const bilan = d.ingested - d.burned;
+                          const isOk = bilan <= 0;
+                          const isWarn = bilan > 0 && bilan <= 200;
+                          const color = isOk ? 'text-emerald-400' : isWarn ? 'text-orange-400' : 'text-red-400';
+                          const indicateur = isOk ? '✓' : isWarn ? '⚠' : '✗';
+                          const indicateurColor = isOk ? 'text-emerald-400' : isWarn ? 'text-orange-400' : 'text-red-400';
+                          return (
+                            <tr key={d.day} className="border-b border-white/5 last:border-0">
+                              <td className="py-1.5 text-gray-300 font-medium">
+                                {d.day} {MOIS[month - 1].toLowerCase()}
+                              </td>
+                              <td className="py-1.5 text-right text-emerald-400">
+                                {d.ingested.toLocaleString('fr-FR')}
+                              </td>
+                              <td className="py-1.5 text-right text-violet-400">
+                                {d.burned.toLocaleString('fr-FR')}
+                              </td>
+                              <td className={`py-1.5 text-right font-semibold ${color}`}>
+                                {bilan > 0 ? '+' : ''}{bilan.toLocaleString('fr-FR')}
+                              </td>
+                              <td className={`py-1.5 text-center font-bold ${indicateurColor}`}>
+                                {indicateur}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Évolution du poids */}
           <div className="bg-[#1a1a2e] rounded-2xl p-4 shadow-xl">
             <div className="flex items-center gap-2 mb-3">

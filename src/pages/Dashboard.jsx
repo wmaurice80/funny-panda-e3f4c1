@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE, ACTIVITY_LABELS } from '../utils/bmr';
-import { isConnected, fetchAllDayData } from '../lib/googleFit';
+import { isConnected, hasRefreshToken, fetchAllDayData } from '../lib/googleFit';
+import { syncedAddActivity } from '../lib/syncManager';
 import GoogleFitCard from '../components/GoogleFitCard';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
@@ -352,10 +353,39 @@ export default function Dashboard() {
     }
 
     // ── Google Fit : chargement parallèle ──────────────────────────────────
-    if (isConnected()) {
+    if (isConnected() || hasRefreshToken()) {
       setGfitLoading(true);
       fetchAllDayData(today)
-        .then((d) => { setGfitData(d); setGfitLoading(false); })
+        .then(async (d) => {
+          setGfitData(d);
+          setGfitLoading(false);
+
+          // Auto-sync des activités Google Fit vers IndexedDB
+          if (d?.activities?.length > 0) {
+            const existantes = await getActivitiesForDate(today);
+            for (const act of d.activities) {
+              if (act.calories < 10) continue; // ignorer les activités négligeables
+              // Eviter les doublons : même date + type similaire + durée proche
+              const doublon = existantes.some(e =>
+                e.type?.toLowerCase().includes('google') &&
+                Math.abs((e.duree ?? 0) - act.dureeMin) < 10
+              );
+              if (!doublon) {
+                await syncedAddActivity({
+                  date: today,
+                  heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                  type: act.name || 'Google Fit',
+                  duree: act.dureeMin,
+                  caloriesBrulees: act.calories,
+                  note: 'Importé depuis Google Fit',
+                });
+              }
+            }
+            // Recharger les activités du jour pour le bilan
+            const updatedActivities = await getActivitiesForDate(today);
+            setTotalSport(updatedActivities.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
+          }
+        })
         .catch(() => setGfitLoading(false));
     }
 
@@ -507,7 +537,7 @@ export default function Dashboard() {
           goal={proteinGoal}
           delay="180ms"
         />
-        {isConnected() && (
+        {(isConnected() || hasRefreshToken()) && (
           <GoogleFitCard
             data={gfitData}
             loading={gfitLoading}
