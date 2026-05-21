@@ -646,6 +646,21 @@ export async function fetchActivitiesForDate(dateISO) {
 }
 
 /**
+ * Sauvegarde l'heure de dernière synchronisation Google Fit dans le localStorage.
+ */
+export function saveLastSync() {
+  localStorage.setItem('gfit_last_sync', new Date().toISOString())
+}
+
+/**
+ * Retourne l'heure de dernière synchronisation Google Fit depuis le localStorage.
+ * @returns {string|null} ISO string ou null si jamais synchronisé
+ */
+export function getLastSync() {
+  return localStorage.getItem('gfit_last_sync')
+}
+
+/**
  * Récupère toutes les données de la journée en parallèle.
  * @param {string} dateISO - Date au format YYYY-MM-DD
  * @returns {Promise<{ tdee: object|null, steps: object|null, heartRate: object|null, activities: Array }>}
@@ -657,6 +672,7 @@ export async function fetchAllDayData(dateISO) {
     fetchHeartRate(dateISO),
     fetchActivitiesForDate(dateISO),
   ])
+  saveLastSync()
   return {
     tdee: tdee.status === 'fulfilled' ? tdee.value : null,
     steps: steps.status === 'fulfilled' ? steps.value : null,

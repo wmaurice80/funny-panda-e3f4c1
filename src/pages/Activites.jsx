@@ -15,6 +15,7 @@ import { getActivitiesForDate } from '../db';
 import { syncedAddActivity, syncedDeleteActivity } from '../lib/syncManager';
 import { SPORT_TYPES } from '../utils/sports';
 import ActivityCard from '../components/ActivityCard';
+import { isConnected, hasRefreshToken } from '../lib/googleFit';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -169,6 +170,20 @@ export default function Activites() {
           {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>
+
+      {(isConnected() || hasRefreshToken()) && (
+        <div className="mx-5 bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-3 flex gap-3 items-start">
+          <span className="text-amber-400 text-lg flex-shrink-0">⚠️</span>
+          <div>
+            <p className="text-xs font-semibold text-amber-300">Google Fit connecté</p>
+            <p className="text-xs text-amber-500 mt-0.5">
+              Les dépenses de ta montre Garmin sont déjà incluses dans ton TDEE dynamique.
+              Ajouter une séance ici créerait un double comptage.
+              Utilise ce journal uniquement pour les activités non tracées par Garmin.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="px-5 flex flex-col gap-4">
 

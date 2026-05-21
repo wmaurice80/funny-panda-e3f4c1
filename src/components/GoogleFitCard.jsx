@@ -7,6 +7,7 @@
 //   onRefresh  — callback déclenché au clic ↻
 
 import { useNavigate } from 'react-router-dom';
+import { getLastSync } from '../lib/googleFit';
 
 /** Emojis par type d'activité (correspondance partielle sur le nom) */
 function activityEmoji(name = '') {
@@ -113,17 +114,27 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
           </span>
         </div>
         {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="w-7 h-7 flex items-center justify-center rounded-lg
-                       bg-[#22223b] border border-white/10 text-gray-400
-                       hover:text-violet-300 hover:border-violet-700/50
-                       active:scale-90 transition-all duration-200 text-base"
-            title="Rafraîchir"
-            aria-label="Rafraîchir Google Fit"
-          >
-            ↻
-          </button>
+          <div className="flex flex-col items-end gap-0.5">
+            <button
+              onClick={onRefresh}
+              className="w-7 h-7 flex items-center justify-center rounded-lg
+                         bg-[#22223b] border border-white/10 text-gray-400
+                         hover:text-violet-300 hover:border-violet-700/50
+                         active:scale-90 transition-all duration-200 text-base"
+              title="Rafraîchir"
+              aria-label="Rafraîchir Google Fit"
+            >
+              ↻
+            </button>
+            {(() => {
+              const lastSync = getLastSync()
+              if (!lastSync) return null
+              const heure = new Date(lastSync).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              return (
+                <span className="text-xs text-gray-600">Sync : {heure}</span>
+              )
+            })()}
+          </div>
         )}
       </div>
 
@@ -148,7 +159,8 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
             <span className="text-lg">⏳</span>
             <div>
               <p className="text-xs font-semibold text-gray-300">TDEE en attente</p>
-              <p className="text-xs text-gray-500">Données Garmin pas encore reçues — base Garmin utilisée ({fmtNum(tdeeGarmin)} kcal)</p>
+              <p className="text-xs text-gray-500">Ouvre Garmin Connect sur ton téléphone pour forcer la sync, puis appuie sur ↻</p>
+              <p className="text-xs text-gray-500 mt-0.5">base Garmin utilisée ({fmtNum(tdeeGarmin)} kcal)</p>
             </div>
           </div>
         )}
