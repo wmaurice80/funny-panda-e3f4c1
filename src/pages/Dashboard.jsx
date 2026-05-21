@@ -68,6 +68,13 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
     ? Math.min(100, Math.round((caloriesIngerees / cible) * 100))
     : 0;
 
+  // Couleur barre : vert = déficit ok, orange = cible dépassée mais < TDEE, rouge = surplus vs TDEE
+  const barColor = caloriesIngerees <= cible
+    ? 'bg-emerald-500'
+    : caloriesIngerees <= tdee
+    ? 'bg-orange-400'
+    : 'bg-red-500';
+
   const style = OBJECTIF_STYLE[objectif] ?? OBJECTIF_STYLE.maintien;
   const bilanColor = isOk ? 'text-emerald-400' : isWarning ? 'text-orange-400' : 'text-red-400';
 
@@ -166,17 +173,21 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
         {/* Barre de progression : ingérées / cible */}
         <div className="w-full h-2 bg-[#22223b] rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${style.bar}`}
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
             style={{ width: `${progressPct}%` }}
           />
         </div>
 
         {/* Label pourcentage */}
         <p className="text-xs text-gray-600 text-center">
-          {progressPct}% de la cible journalière
-          {caloriesIngerees === 0 && (
-            <span> — ajoutez un repas 📸</span>
-          )}
+          {progressPct}% de la cible
+          {caloriesIngerees === 0
+            ? ' — ajoutez un repas 📸'
+            : caloriesIngerees > tdee
+            ? ' — surplus calorique 🔴'
+            : caloriesIngerees > cible
+            ? ' — déficit annulé 🟠'
+            : ''}
         </p>
       </div>
     </div>
