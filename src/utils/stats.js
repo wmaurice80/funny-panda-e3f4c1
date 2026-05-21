@@ -27,7 +27,7 @@ function daysInMonth(year, month) {
  * @param {number} tdeeMesure - TDEE jours de repos
  * @param {number} tdeeSport  - TDEE jours de sport (0 = non renseigné)
  */
-export async function getMonthlyData(year, month, tdeeMesure, tdeeSport = 0) {
+export async function getMonthlyData(year, month, tdee) {
   const totalDays = daysInMonth(year, month);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -40,10 +40,10 @@ export async function getMonthlyData(year, month, tdeeMesure, tdeeSport = 0) {
     ]).then(([meals, acts]) => {
       const ingested = meals.reduce((s, m) => s + (m.totalCalories ?? 0), 0);
       const proteines = meals.reduce((s, m) => s + (m.totalProteines ?? 0), 0);
+      const sport = acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0);
       const isSportDay = acts.length > 0;
       const isFuture = date > today;
-      const tdeeJour = isSportDay && tdeeSport > 0 ? tdeeSport : tdeeMesure;
-      const burned = (isFuture && ingested === 0) ? 0 : tdeeJour;
+      const burned = (isFuture && ingested === 0) ? 0 : tdee + sport;
       return { day, date, ingested, proteines, burned, isSportDay };
     });
   });
@@ -62,18 +62,19 @@ export async function getMonthlyData(year, month, tdeeMesure, tdeeSport = 0) {
  * @param {number} [cible]   - cible repos (si absent, utilise tdeeMesure)
  * @param {number} [cibleSport] - cible sport (si absent, utilise tdeeSport)
  */
-export async function getMonthBilan(year, month, tdeeMesure, tdeeSport = 0, cible, cibleSport) {
-  const data = await getMonthlyData(year, month, tdeeMesure, tdeeSport);
+export async function getMonthBilan(year, month, tdee, cible) {
+  const cibleEffective = cible ?? tdee;
+  const data = await getMonthlyData(year, month, tdee);
   const today = new Date().toISOString().slice(0, 10);
 
   const pastDays = data.filter(d => d.date <= today && d.ingested > 0);
 
   const totalIngested = pastDays.reduce((s, d) => s + d.ingested, 0);
 
-  // Cible par jour : cibleSport si jour de sport, sinon cible repos
+  // Cible par jour = cible repos + sport de ce jour
   const totalBurned = pastDays.reduce((s, d) => {
-    const c = d.isSportDay && cibleSport > 0 ? cibleSport : (cible ?? tdeeMesure);
-    return s + c;
+    const sportJour = Math.max(0, d.burned - tdee);
+    return s + cibleEffective + sportJour;
   }, 0);
 
   const netBalance = totalIngested - totalBurned;
@@ -90,8 +91,8 @@ export async function getMonthBilan(year, month, tdeeMesure, tdeeSport = 0, cibl
  * @param {number} month  - 1..12
  * @param {number} tdee
  */
-export async function getWeeklyTrends(year, month, tdeeMesure, tdeeSport = 0) {
-  const data = await getMonthlyData(year, month, tdeeMesure, tdeeSport);
+export async function getWeeklyTrends(year, month, tdee) {
+  const data = await getMonthlyData(year, month, tdee);
   const today = new Date().toISOString().slice(0, 10);
 
   // Découper les jours en semaines (S1 = jours 1-7, S2 = 8-14, S3 = 15-21, S4 = 22+)

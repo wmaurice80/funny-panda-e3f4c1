@@ -52,9 +52,7 @@ export default function Stats() {
   const [month, setMonth] = useState(now.getMonth() + 1); // 1..12
 
   const [tdee, setTdee] = useState(null);
-  const [tdeeSport, setTdeeSport] = useState(0);
   const [cible, setCible] = useState(null);
-  const [cibleSport, setCibleSport] = useState(null);
   const [objectif, setObjectif] = useState('maintien');
   const [proteinGoal, setProteinGoal] = useState(0);
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
@@ -77,14 +75,8 @@ export default function Stats() {
       const bmr = Math.round(calculateBMR(profile));
       const computedTdee = getEffectiveTDEE(profile, bmr);
       const computedCible = calculateCible(computedTdee, profile.objectif, profile.vitesseObjectif);
-      const computedTdeeSport = profile.tdeeSport > 0 ? profile.tdeeSport : 0;
-      const computedCibleSport = computedTdeeSport > 0
-        ? calculateCible(computedTdeeSport, profile.objectif, profile.vitesseObjectif)
-        : computedCible;
       setTdee(computedTdee);
-      setTdeeSport(computedTdeeSport);
       setCible(computedCible);
-      setCibleSport(computedCibleSport);
       setObjectif(profile.objectif ?? 'maintien');
       setProteinGoal(calculateProteinGoal(profile));
     })();
@@ -99,9 +91,9 @@ export default function Stats() {
     setLoading(true);
     const prefix = `${String(year)}-${String(month).padStart(2, '0')}`;
     const [data, bil, trend, allWeights] = await Promise.all([
-      getMonthlyData(year, month, tdee, tdeeSport),
-      getMonthBilan(year, month, tdee, tdeeSport, cible, cibleSport),
-      getWeeklyTrends(year, month, tdee, tdeeSport),
+      getMonthlyData(year, month, tdee),
+      getMonthBilan(year, month, tdee, cible),
+      getWeeklyTrends(year, month, tdee),
       getWeights(),
     ]);
     setMonthlyData(data);
@@ -114,7 +106,7 @@ export default function Stats() {
         .map(w => ({ date: w.date, poids: w.poids }))
     );
     setLoading(false);
-  }, [year, month, tdee, tdeeSport, cible, cibleSport]);
+  }, [year, month, tdee, cible]);
 
   useEffect(() => {
     loadStats();
@@ -268,7 +260,8 @@ export default function Stats() {
 
             const idx = Math.min(selectedDayIdx, jours.length - 1);
             const d = jours[idx];
-            const cibleJour = d.isSportDay && cibleSport > 0 ? cibleSport : (cible ?? 0);
+            const delta = tdee > 0 && cible > 0 ? tdee - cible : 0;
+            const cibleJour = Math.max(0, d.burned - delta);
             const bilanNet = d.ingested - cibleJour;
             const isOk = bilanNet <= 0;
             const isWarn = bilanNet > 0 && bilanNet <= 200;
@@ -322,7 +315,7 @@ export default function Stats() {
                   </div>
                   <div className="bg-[#0f0f1a] rounded-xl py-3">
                     <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
-                      {d.isSportDay ? 'Cible 🏋️' : 'Cible 😴'}
+                      {d.isSportDay ? 'Cible 🏋️' : 'Cible'}
                     </p>
                     <p className="text-lg font-extrabold text-violet-400">
                       {cibleJour.toLocaleString('fr-FR')}
