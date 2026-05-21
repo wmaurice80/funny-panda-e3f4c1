@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   isConnected,
+  hasRefreshToken,
   initiateGoogleAuth,
   disconnect,
   fetchAllDayData,
@@ -65,7 +66,7 @@ export default function Integrations() {
   const checkConnection = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const status = await isConnected();
+      const status = isConnected() || hasRefreshToken();
       setConnected(status);
     } catch {
       setConnected(false);
