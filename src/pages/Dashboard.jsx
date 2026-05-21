@@ -5,7 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE, ACTIVITY_LABELS } from '../utils/bmr';
 import { isConnected, hasRefreshToken, fetchAllDayData } from '../lib/googleFit';
-import { syncedAddActivity } from '../lib/syncManager';
+import { syncedAddActivity, syncedDeleteActivity } from '../lib/syncManager';
 import GoogleFitCard from '../components/GoogleFitCard';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
@@ -360,17 +360,19 @@ export default function Dashboard() {
           setGfitData(d);
           setGfitLoading(false);
 
-          // Auto-sync des activités Google Fit vers IndexedDB
-          if (d?.activities?.length > 0) {
+          // Auto-sync des activités Google Fit → suppression puis réinsertion propre
+          {
             const existantes = await getActivitiesForDate(today);
-            for (const act of d.activities) {
-              if (act.calories < 10) continue; // ignorer les activités négligeables
-              // Eviter les doublons : même date + type similaire + durée proche
-              const doublon = existantes.some(e =>
-                e.type?.toLowerCase().includes('google') &&
-                Math.abs((e.duree ?? 0) - act.dureeMin) < 10
-              );
-              if (!doublon) {
+            // Supprimer toutes les activités Google Fit du jour
+            for (const e of existantes) {
+              if (e.note === 'Importé depuis Google Fit') {
+                await syncedDeleteActivity(e.id);
+              }
+            }
+            // Réinsérer les activités du jour depuis Google Fit
+            if (d?.activities?.length > 0) {
+              for (const act of d.activities) {
+                if (act.calories < 10) continue;
                 await syncedAddActivity({
                   date: today,
                   heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
@@ -381,7 +383,7 @@ export default function Dashboard() {
                 });
               }
             }
-            // Recharger les activités du jour pour le bilan
+            // Recharger le total sport pour le bilan
             const updatedActivities = await getActivitiesForDate(today);
             setTotalSport(updatedActivities.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
           }
