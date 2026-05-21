@@ -12,6 +12,7 @@ import {
   disconnect,
   fetchAllDayData,
   fetchLatestWeight,
+  fetchDebugInfo,
 } from '../lib/googleFit';
 import { getActivitiesForDate } from '../db';
 import { syncedAddActivity, syncedAddWeight } from '../lib/syncManager';
@@ -57,6 +58,8 @@ export default function Integrations() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null); // { activities, kcal, poids } | null
   const [syncError, setSyncError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [debugging, setDebugging] = useState(false);
 
   // Vérification initiale de la connexion
   const checkConnection = useCallback(async () => {
@@ -294,6 +297,41 @@ export default function Integrations() {
               {syncError && (
                 <div className="rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
                   <p className="text-xs text-red-400">{syncError}</p>
+                </div>
+              )}
+
+              {/* Debug — données brutes Google Fit */}
+              <button
+                onClick={async () => {
+                  setDebugging(true);
+                  try {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const info = await fetchDebugInfo(today);
+                    setDebugInfo(info);
+                  } catch (e) {
+                    setDebugInfo({ erreur: e.message });
+                  } finally {
+                    setDebugging(false);
+                  }
+                }}
+                disabled={debugging}
+                className="w-full py-2 rounded-xl border border-white/10 bg-[#0f0f1a]
+                           text-gray-500 font-medium text-xs flex items-center justify-center gap-2
+                           hover:text-gray-300 transition-colors"
+              >
+                {debugging ? '⏳ Analyse...' : '🔍 Diagnostiquer les données Google Fit'}
+              </button>
+              {debugInfo && (
+                <div className="bg-[#0f0f1a] rounded-xl p-3 border border-white/10">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">Données aujourd'hui :</p>
+                  {Object.entries(debugInfo).map(([key, val]) => (
+                    <div key={key} className="flex justify-between text-xs py-1 border-b border-white/5">
+                      <span className="text-gray-500 truncate">{key.replace('com.google.', '')}</span>
+                      <span className={`font-bold ml-2 ${typeof val === 'number' && val > 0 ? 'text-emerald-400' : 'text-gray-600'}`}>
+                        {val}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

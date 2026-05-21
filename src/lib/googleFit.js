@@ -323,6 +323,54 @@ export async function fetchWeightHistory(days = 30) {
 }
 
 // ---------------------------------------------------------------------------
+// Debug — liste les data sources disponibles + données calories
+// ---------------------------------------------------------------------------
+
+export async function fetchDebugInfo(dateISO) {
+  const accessToken = await getAccessToken()
+  const startMs = dateToStartOfDayMs(dateISO)
+  const endMs = startMs + 24 * 60 * 60 * 1000
+
+  // Essayer plusieurs data types pour les calories
+  const dataTypes = [
+    'com.google.calories.expended',
+    'com.google.calories.bmr',
+    'com.google.active_minutes',
+    'com.google.step_count.delta',
+  ]
+
+  const results = {}
+  for (const dt of dataTypes) {
+    try {
+      const res = await fetch('https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aggregateBy: [{ dataTypeName: dt }],
+          bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+          startTimeMillis: startMs,
+          endTimeMillis: endMs,
+        }),
+      })
+      if (!res.ok) { results[dt] = `HTTP ${res.status}`; continue }
+      const data = await res.json()
+      let total = 0
+      for (const bucket of data.bucket || []) {
+        for (const dataset of bucket.dataset || []) {
+          for (const point of dataset.point || []) {
+            total += point.value?.[0]?.fpVal ?? point.value?.[0]?.intVal ?? 0
+          }
+        }
+      }
+      results[dt] = Math.round(total)
+    } catch (e) {
+      results[dt] = `Erreur: ${e.message}`
+    }
+  }
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // Nouvelles fonctions Google Fit
 // ---------------------------------------------------------------------------
 
