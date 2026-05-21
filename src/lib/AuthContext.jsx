@@ -41,9 +41,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Vérification de la session existante au montage
+    // Si session active → sync Supabase pour récupérer données des autres appareils
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setLoading(false)
+      if (session?.user) {
+        setSyncing(true)
+        syncFromSupabase().finally(() => setSyncing(false))
+      }
     })
 
     // Écoute des changements d'état d'authentification
