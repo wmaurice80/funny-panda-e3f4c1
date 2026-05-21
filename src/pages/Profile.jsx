@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../db';
 import { syncedSaveProfile } from '../lib/syncManager';
-import { ACTIVITY_LABELS, calculateProteinGoal } from '../utils/bmr';
+import { ACTIVITY_LABELS, ACTIVITY_FACTORS, calculateBMR, calculateTDEE, calculateProteinGoal } from '../utils/bmr';
 import { useAuth } from '../lib/AuthContext';
 
 const INITIAL = {
@@ -16,7 +16,6 @@ const INITIAL = {
   objectif: 'maintien',
   vitesseObjectif: 'moderee',
   tdeeMesure: '',
-  tdeeSport: '',
   masseGrasse: '',
 };
 
@@ -34,13 +33,12 @@ const VITESSE_OPTIONS = [
 
 const ACTIVITY_KEYS = Object.keys(ACTIVITY_LABELS);
 
-/** Description succincte de chaque niveau d'activité (US-24) */
 const ACTIVITY_DESCRIPTIONS = {
-  sedentaire: 'Bureau toute la journée, quasi aucun déplacement — ~2 430 kcal/j hors sport',
-  leger:      'Marche quotidienne, courses, debout parfois — ~2 640 kcal/j hors sport',
-  modere:     'Télétravail actif, déplacements réguliers — ~2 800 kcal/j hors sport',
-  actif:      'Travail physique léger ou mode de vie très actif — ~3 040 kcal/j hors sport',
-  extreme:    'Travail physique intense quotidien (maçon, déménageur…) — ~3 450 kcal/j hors sport',
+  sedentaire: 'Bureau toute la journée, quasi aucun déplacement',
+  leger:      'Marche quotidienne, courses, debout parfois',
+  modere:     'Télétravail actif, déplacements réguliers',
+  actif:      'Travail physique léger ou mode de vie très actif',
+  extreme:    'Travail physique intense quotidien (maçon, déménageur…)',
 };
 
 function Field({ label, error, children }) {
@@ -80,7 +78,6 @@ export default function Profile() {
           objectif: profile.objectif ?? 'maintien',
           vitesseObjectif: profile.vitesseObjectif ?? 'moderee',
           tdeeMesure: profile.tdeeMesure ? String(profile.tdeeMesure) : '',
-          tdeeSport: profile.tdeeSport ? String(profile.tdeeSport) : '',
           masseGrasse: profile.masseGrasse ? String(profile.masseGrasse) : '',
         });
       }
@@ -120,7 +117,6 @@ export default function Profile() {
       objectif: form.objectif,
       vitesseObjectif: form.vitesseObjectif,
       tdeeMesure: form.tdeeMesure ? Number(form.tdeeMesure) : 0,
-      tdeeSport: form.tdeeSport ? Number(form.tdeeSport) : 0,
       masseGrasse: form.masseGrasse ? Number(form.masseGrasse) : 0,
     });
     setSaving(false);
@@ -295,14 +291,25 @@ export default function Profile() {
                 >
                   {ACTIVITY_LABELS[key]}
                 </button>
-                {form.niveauActivite === key && (
-                  <p
-                    className="text-xs text-gray-400 italic px-1 animate-fade-in"
-                    style={{ animation: 'fadeIn 0.3s ease-in-out' }}
-                  >
-                    {ACTIVITY_DESCRIPTIONS[key]}
-                  </p>
-                )}
+                {form.niveauActivite === key && (() => {
+                  const p = Number(form.poids);
+                  const t = Number(form.taille);
+                  const a = Number(form.age);
+                  const hasData = p > 0 && t > 0 && a > 0;
+                  const tdeeEstime = hasData
+                    ? Math.round(calculateTDEE(calculateBMR({ poids: p, taille: t, age: a, sexe: form.sexe }), key))
+                    : null;
+                  return (
+                    <p className="text-xs text-gray-400 italic px-1">
+                      {ACTIVITY_DESCRIPTIONS[key]}
+                      {tdeeEstime && (
+                        <span className="text-violet-400 font-semibold not-italic">
+                          {' '}— ~{tdeeEstime.toLocaleString('fr-FR')} kcal/j hors sport
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -331,31 +338,6 @@ export default function Profile() {
             <p className="text-xs font-semibold text-emerald-400">✓ Utilisé comme base de calcul</p>
           ) : (
             <p className="text-xs text-gray-600">Calcul automatique actif (Mifflin-St Jeor)</p>
-          )}
-        </div>
-
-        {/* TDEE jour de sport */}
-        <div className="bg-[#0d1117] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
-          <div>
-            <p className="text-xs font-semibold text-gray-400">🏋️ TDEE mesuré — jours de sport</p>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-              Dépense calorique Garmin les jours avec séance (moyenne mesurée). Activé via le toggle "Jour de sport" sur l'accueil.
-            </p>
-          </div>
-          <input
-            className={inputClass}
-            type="number"
-            inputMode="numeric"
-            placeholder="ex. 3 500"
-            min="500"
-            max="8000"
-            value={form.tdeeSport}
-            onChange={set('tdeeSport')}
-          />
-          {form.tdeeSport && Number(form.tdeeSport) > 0 ? (
-            <p className="text-xs font-semibold text-violet-400">✓ Utilisé les jours de sport</p>
-          ) : (
-            <p className="text-xs text-gray-600">Utilisera tdeeMesure si non renseigné</p>
           )}
         </div>
 
