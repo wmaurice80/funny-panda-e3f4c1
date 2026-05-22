@@ -1,5 +1,5 @@
 # CalSnap — Contexte projet (Claude)
-> Dernière mise à jour : 22 mai 2026
+> Dernière mise à jour : 22 mai 2026 (session 2)
 
 ## Vision produit
 Application mobile PWA de suivi calorique et protéique par photo de repas et saisie manuelle, avec synchronisation cloud Supabase et intégration Google Fit / Garmin.
@@ -205,6 +205,25 @@ npm run dev -- --host   # dev local
 npm run build           # build prod
 git add -A && git commit -m "..." && git push  # deploy auto Netlify
 ```
+
+---
+
+## Résumé de session — 22 mai 2026
+
+### Corrections et améliorations livrées
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `src/lib/claudeApi.js` (nouveau) | Wrapper centralisé appels Anthropic — retry backoff exponentiel 3×(1s/2s/4s) sur 529/503 |
+| 2 | `Repas.jsx`, `Aliments.jsx`, `AnalyseResult.jsx` | Refacto : utilisent tous `callClaude()` — suppression de la duplication fetch |
+| 3 | `Dashboard.jsx` | Barre protéines : seuil "atteint" à 95% (au lieu de 100%) → cyan dès 95% |
+| 4 | `Activites.jsx` | Suppression encart warning Google Fit |
+| 5 | `Activites.jsx` | Section Garmin rendue dépliable (fermée par défaut, badge "À venir") |
+| 6 | `utils/stats.js` | Fix tendances hebdo : `getWeeklyTrends` filtre `ingested > 0` comme `getMonthBilan` — les jours sans repas ne tiraient plus la moyenne à la baisse |
+| 7 | `Dashboard.jsx` | Réorganisation accueil : BilanCard → ProteinCard → TDEE+BMR côte à côte (grid) → reste. `StatCard` prop `compact` pour demi-largeur |
+
+### Git
+- Tag `v1.0.0-webapp` créé sur `main` — snapshot PWA stable
+- Branche `roadmap/native-monetisation` créée pour les sprints backlog P1/P2/P3
 
 ---
 
