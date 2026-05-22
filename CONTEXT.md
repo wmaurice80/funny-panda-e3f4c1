@@ -1,5 +1,5 @@
 # CalSnap — Contexte projet (Claude)
-> Dernière mise à jour : 21 mai 2026
+> Dernière mise à jour : 22 mai 2026
 
 ## Vision produit
 Application mobile PWA de suivi calorique et protéique par photo de repas et saisie manuelle, avec synchronisation cloud Supabase et intégration Google Fit / Garmin.
@@ -21,7 +21,7 @@ Application mobile PWA de suivi calorique et protéique par photo de repas et sa
 | IA analyse photo | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 | IA estimation texte | Claude Haiku 4.5 |
 | Base alimentaire | Open Food Facts API (gratuite) |
-| Intégration santé | Google Fit OAuth PKCE |
+| Intégration santé | Google Fit OAuth PKCE (info seulement — pas, FC) |
 | Type | PWA installable Android |
 | Hébergement | Netlify — https://calsnapwmp.netlify.app |
 | Repo GitHub | https://github.com/wmaurice80/funny-panda-e3f4c1 |
@@ -32,6 +32,7 @@ Application mobile PWA de suivi calorique et protéique par photo de repas et sa
 - Project ID : lhcouyccseuyczcmatoa
 - URL : https://lhcouyccseuyczcmatoa.supabase.co
 - Tables : profiles, meals, activities, weights (RLS activé, GRANTs accordés)
+- Colonne ajoutée : `profiles.tdee_sport` (integer, présente en base mais inutilisée en UI)
 - Auth URL : https://calsnapwmp.netlify.app
 
 ## Google Fit OAuth
@@ -40,7 +41,8 @@ Application mobile PWA de suivi calorique et protéique par photo de repas et sa
 - Scopes : fitness.activity.read + fitness.body.read
 - Tokens stockés dans localStorage (clés : gfit_access_token, gfit_refresh_token, gfit_expires_at)
 - **Limitation** : Garmin ne sync pas `calories.expended` vers Google Fit — seuls pas, poids, FC disponibles
-- TDEE dynamique = calories.expended si > BMR, sinon TDEE Garmin mesuré (fallback)
+- **Rôle actuel** : affichage informatif uniquement (pas, cal détectées téléphone, FC) — n'impacte plus le calcul TDEE
+- Garmin API officielle en attente d'approbation (demande soumise)
 
 ---
 
@@ -54,27 +56,28 @@ calsnap/src/
 ├── lib/
 │   ├── supabase.js
 │   ├── AuthContext.jsx (sync Supabase au SIGNED_IN ET à la restauration de session)
-│   ├── supabaseDb.js (push*/pull* CRUD Supabase)
+│   ├── supabaseDb.js (push*/pull* CRUD Supabase — inclut tdee_sport même si inutilisé UI)
 │   ├── syncManager.js (dual-write IndexedDB + Supabase fire-and-forget)
-│   └── googleFit.js (OAuth PKCE, fetchAllDayData, fetchDailyTDEE, etc.)
+│   └── googleFit.js (OAuth PKCE, fetchAllDayData, fetchDailyTDEE — info seulement)
 ├── utils/
 │   ├── bmr.js (calculateBMR, calculateTDEE, getEffectiveTDEE, calculateCible, calculateProteinGoal)
-│   ├── stats.js (getMonthlyData, getMonthBilan — compte uniquement les jours trackés)
+│   │   ACTIVITY_FACTORS recalibrés hors sport : sédentaire 1.2 / léger 1.3 / modéré 1.38 / actif 1.5 / extrême 1.7
+│   ├── stats.js (getMonthlyData, getMonthBilan, getWeeklyTrends — isSportDay si activités ce jour)
 │   └── sports.js
 ├── pages/
 │   ├── Dashboard.jsx (BilanCard, GoogleFitCard, ProteinCard, PoidsWidget)
-│   ├── Profile.jsx (BMR, TDEE Garmin mesuré, % MG, objectif)
+│   ├── Profile.jsx (BMR, TDEE Garmin mesuré, % MG + estimation Navy, objectif)
 │   ├── Repas.jsx (CameraCapture + galerie + AnalyseResult éditable)
 │   ├── Aliments.jsx (Open Food Facts + IA texte + ProteinSources + DrinkSources)
-│   ├── Activites.jsx (saisie manuelle + avertissement Google Fit)
-│   ├── Stats.jsx (graphiques + bilan journalier tableau)
+│   ├── Activites.jsx (saisie manuelle — historique + impact TDEE)
+│   ├── Stats.jsx (graphiques + navigateur journalier ← → + tendances semaines datées)
 │   ├── Poids.jsx, Historique.jsx, Migration.jsx
 │   ├── Auth.jsx, GoogleFitCallback.jsx, Integrations.jsx
 │   └── Poids.jsx
 └── components/
     ├── BottomNav.jsx (4 onglets : Accueil, Repas, Activités, Stats)
     ├── CameraCapture.jsx (getUserMedia — contourne bug Android capture)
-    ├── GoogleFitCard.jsx (TDEE dynamique + pas + FC + heure dernière sync)
+    ├── GoogleFitCard.jsx (pas + cal détectées info + FC — TDEE dynamique supprimé)
     ├── AnalyseResult.jsx (items éditables + bouton ↻ IA par item)
     ├── ProteinSources.jsx, DrinkSources.jsx
     ├── MealCard.jsx, ActivityCard.jsx
@@ -88,14 +91,22 @@ calsnap/src/
 ### Calcul calorique
 ```
 BMR = Mifflin-St Jeor
+
 TDEE effectif = tdeeMesure Garmin (profil) si renseigné, sinon BMR × facteur activité
-TDEE dynamique = calories.expended Google Fit si > BMR, sinon TDEE effectif
+  → facteurs calibrés hors sport (sport géré via activités manuelles) :
+    sédentaire 1.2 / léger 1.3 / modéré 1.38 (~2 800) / actif 1.5 / extrême 1.7
 
-Cible = TDEE dynamique − déficit objectif (perte −250/500/750, prise +250/500)
-Cible min = BMR (protection physiologique)
+TDEE du jour = TDEE effectif + calories activités manuelles saisies ce jour
 
-Bilan net = ingérées − (cible + sport manuel)
-Déficit réel = TDEE Garmin − ingérées
+Cible = TDEE du jour − déficit objectif (perte −250/500/750, prise +250/500)
+
+Bilan net = ingérées − cible
+Déficit réel = TDEE du jour − ingérées
+
+Barre de progression (tricolore) :
+  Vert   : ingérées ≤ cible → déficit actif, perte de poids
+  Orange : cible < ingérées ≤ TDEE → déficit annulé, maintien
+  Rouge  : ingérées > TDEE → surplus, prise de poids
 ```
 
 ### Calcul protéines
@@ -103,14 +114,35 @@ Déficit réel = TDEE Garmin − ingérées
 Si masseGrasse renseigné → LBM = poids × (1 − MG%) → objectif = LBM × 2.3 g
 Sinon → poids × PROTEIN_FACTORS[niveauActivite]
 wmaurice : 74 kg LBM × 2.3 = 170 g/j
+
+Seuil anti-catabolisme musculaire = 75% de l'objectif (= 1.6 g/kg LBM minimum)
+Barre protéines tricolore :
+  Rouge   : < 75% → risque catabolisme
+  Orange  : 75–100% → zone attention
+  Cyan    : ≥ 100% → objectif atteint
 ```
 
-### Google Fit — comportement
-- Seuls **pas**, **poids**, **FC** sont disponibles via Garmin → Google Fit
-- `calories.expended` = total dépense Garmin (BMR + mouvement) — disponible parfois
-- **Workflow sport** : Garmin enregistre séance → sync Garmin Connect → tap ↻ sur CalSnap
-- ⚠️ Si Google Fit connecté : NE PAS ajouter les séances manuellement dans Activités (double comptage)
-- Garmin API officielle en attente d'approbation (demande soumise)
+### Estimation masse grasse (méthode Navy)
+```
+Hommes : BF% = 495 / (1.0324 - 0.19077 × log10(taille - cou) + 0.15456 × log10(hauteur)) - 450
+Femmes : BF% = 495 / (1.29579 - 0.35004 × log10(taille + hanches - cou) + 0.22100 × log10(hauteur)) - 450
+Disponible dans Profil → section rétractable sous le champ % MG
+```
+
+### Stats — navigateur journalier
+```
+Bilan par jour navigable ← → (remplace l'ancien tableau)
+Affiche : date, ingérées, cible 🏋️/repos, bilan net, protéines
+cibleJour = burned_ce_jour − déficit (burned = tdeeMesure + sport saisi ce jour)
+Indicateur 🏋️ si activités enregistrées ce jour
+Tendances hebdo : labels "1–7 mai", "8–14 mai"… (plus de S1/S2/S3)
+```
+
+### Google Fit — comportement actuel
+- **Rôle** : affichage informatif uniquement (pas, calories actives détectées téléphone, FC)
+- N'impacte plus le calcul TDEE ni la cible
+- Garmin ne sync pas calories → Google Fit : confirmé définitivement
+- En attente API Garmin officielle pour intégration native
 
 ### Sync multi-appareils
 - Dual-write : IndexedDB en premier + Supabase fire-and-forget
@@ -125,10 +157,12 @@ wmaurice : 74 kg LBM × 2.3 = 170 g/j
 | Poids | 119 kg |
 | % Masse grasse | 37.7% |
 | LBM | ~74 kg |
-| TDEE mesuré Garmin | 2 750 kcal/j (sans sport) |
-| Objectif protéines | 170 g/j |
-| Sport | 5 séances muscu/semaine (sans téléphone) |
-| Mode de vie | Télétravail |
+| TDEE mesuré Garmin (repos) | 2 750 kcal/j |
+| TDEE Garmin jours de sport | ~3 500–4 000 kcal/j |
+| Objectif protéines | 170 g/j (LBM × 2.3) |
+| Seuil anti-catabolisme | 127 g/j (75% de 170 g) |
+| Sport | 5 séances muscu/semaine — saisies manuellement dans Activités |
+| Mode de vie | Télétravail (niveauActivite = modéré → ~2 800 kcal/j) |
 
 ---
 
@@ -141,17 +175,20 @@ wmaurice : 74 kg LBM × 2.3 = 170 g/j
 | S7 | Protéines (LBM) + Sources protéines + Boissons (cl) |
 | M-S1 | Auth Supabase + Schéma SQL + RLS |
 | M-S2 | Dual-write sync + Migration IndexedDB→Supabase |
-| M-S3+ | Google Fit OAuth + TDEE dynamique + Pas + FC + Sync |
+| M-S3+ | Google Fit OAuth + Pas + FC (TDEE Fit abandonné — Garmin ne sync pas) |
+| M-S4 | Refonte calcul TDEE + barre tricolore cible + barre protéines seuil 75% |
+| M-S5 | Navigateur journalier Stats + tendances datées + estimation MG Navy |
 
 ---
 
 ## Bugs connus / décisions techniques
 - **Caméra Android** : `capture="environment"` bugué → utilise `getUserMedia` (CameraCapture.jsx)
-- **Garmin calories** : non disponibles via Google Fit/Health Connect
-- **Cible min BMR** : protection ajoutée (cible ≥ BMR toujours)
-- **Google Fit TDEE partiel** : ignoré si < BMR (données mid-day incomplètes)
-- **Stats bilan** : ne compte que les jours avec données (évite gonflement totalBurned)
+- **Garmin calories** : non disponibles via Google Fit — définitivement confirmé
+- **Google Fit TDEE** : abandonné comme source de calcul (données téléphone trop imprécises)
+- **tdeeMesure critique** : doit être renseigné dans le profil (2 750) — si 0, fallback BMR×facteur
+- **Stats bilan** : ne compte que les jours avec repas saisis (évite gonflement totalBurned)
 - **Garmin API** : approbation en attente — intégration OAuth Garmin prévue dès réponse
+- **tdee_sport** : colonne présente en Supabase mais plus utilisée en UI (toggle abandonné)
 
 ## Variables Netlify à maintenir
 ```
