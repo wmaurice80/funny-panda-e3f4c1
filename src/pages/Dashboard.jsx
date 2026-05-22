@@ -199,23 +199,24 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
  * Affiche la progression des protéines journalières.
  */
 const PROTEIN_THRESHOLD = 75; // % minimum pour préserver la masse musculaire (1.6 g/kg LBM)
+const PROTEIN_REACHED  = 95; // % considéré comme objectif atteint (marge de ~5%)
 
 function ProteinCard({ ingested, goal, delay }) {
   const rawPct = goal > 0 ? (ingested / goal) * 100 : 0;
   const progressPct = Math.min(100, Math.round(rawPct));
-  const isReached = ingested >= goal;
+  const isReached = rawPct >= PROTEIN_REACHED;
   const isOver = ingested > goal;
   const overBy = Math.round(ingested - goal);
   const remaining = Math.round(goal - ingested);
 
   // Couleur selon zone
-  const barColor = rawPct >= 100
+  const barColor = rawPct >= PROTEIN_REACHED
     ? 'bg-cyan-500'
     : rawPct >= PROTEIN_THRESHOLD
     ? 'bg-orange-400'
     : 'bg-red-500';
 
-  const valueColor = rawPct >= 100
+  const valueColor = rawPct >= PROTEIN_REACHED
     ? 'text-cyan-400'
     : rawPct >= PROTEIN_THRESHOLD
     ? 'text-orange-400'
