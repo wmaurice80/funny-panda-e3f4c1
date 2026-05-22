@@ -13,14 +13,14 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function StatCard({ label, value, unit, icon, color, delay, badge }) {
+function StatCard({ label, value, unit, icon, color, delay, badge, compact = false }) {
   return (
     <div
-      className="bg-[#1a1a2e] rounded-2xl p-5 flex flex-col gap-2 shadow-xl animate-fade-in-up"
+      className="bg-[#1a1a2e] rounded-2xl p-4 flex flex-col gap-2 shadow-xl animate-fade-in-up"
       style={{ animationDelay: delay }}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">{label}</span>
           {badge && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full
@@ -29,11 +29,13 @@ function StatCard({ label, value, unit, icon, color, delay, badge }) {
             </span>
           )}
         </div>
-        <span className="text-xl">{icon}</span>
+        <span className={compact ? 'text-lg' : 'text-xl'}>{icon}</span>
       </div>
       <div className="flex items-end gap-1">
-        <span className={`text-4xl font-extrabold ${color}`}>{value.toLocaleString('fr-FR')}</span>
-        <span className="text-sm text-gray-400 mb-1">{unit}</span>
+        <span className={`font-extrabold ${compact ? 'text-2xl' : 'text-4xl'} ${color}`}>
+          {value.toLocaleString('fr-FR')}
+        </span>
+        <span className="text-xs text-gray-400 mb-0.5">{unit}</span>
       </div>
     </div>
   );
@@ -535,37 +537,48 @@ export default function Dashboard() {
 
       {/* Cards */}
       <div className="px-5 flex flex-col gap-4">
-        <StatCard
-          label="BMR — Métabolisme de base"
-          value={bmr}
-          unit="kcal / jour"
-          icon="🔥"
-          color="text-orange-400"
-          delay="0ms"
-        />
-        <StatCard
-          label="TDEE — Dépense totale"
-          value={tdeeEffectif}
-          unit="kcal / jour"
-          icon="⚡"
-          color="text-violet-400"
-          delay="60ms"
-          badge={totalSport > 0 ? '🏋️ Sport' : profile.tdeeMesure > 0 ? '⌚ Garmin' : undefined}
-        />
 
+        {/* 1 — Bilan du jour */}
         <BilanCard
           tdee={tdeeEffectif}
           cible={cible}
           objectif={objectif}
           caloriesIngerees={caloriesIngerees}
           totalSport={totalSport}
-          delay="90ms"
+          delay="0ms"
         />
+
+        {/* 2 — Protéines */}
         <ProteinCard
           ingested={totalProteinesJour}
           goal={proteinGoal}
-          delay="180ms"
+          delay="60ms"
         />
+
+        {/* 3 — TDEE + BMR côte à côte */}
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="TDEE"
+            value={tdeeEffectif}
+            unit="kcal/j"
+            icon="⚡"
+            color="text-violet-400"
+            delay="120ms"
+            badge={totalSport > 0 ? '🏋️' : profile.tdeeMesure > 0 ? '⌚' : undefined}
+            compact
+          />
+          <StatCard
+            label="BMR"
+            value={bmr}
+            unit="kcal/j"
+            icon="🔥"
+            color="text-orange-400"
+            delay="150ms"
+            compact
+          />
+        </div>
+
+        {/* 4 — Suite */}
         {(isConnected() || hasRefreshToken()) && (
           <GoogleFitCard
             data={gfitData}
