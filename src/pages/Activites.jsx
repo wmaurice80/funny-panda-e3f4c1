@@ -15,7 +15,6 @@ import { getActivitiesForDate } from '../db';
 import { syncedAddActivity, syncedDeleteActivity } from '../lib/syncManager';
 import { SPORT_TYPES } from '../utils/sports';
 import ActivityCard from '../components/ActivityCard';
-import { isConnected, hasRefreshToken } from '../lib/googleFit';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -41,6 +40,7 @@ export default function Activites() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [formOpen, setFormOpen] = useState(true);
+  const [garminOpen, setGarminOpen] = useState(false);
   const [garminInput, setGarminInput] = useState('');
   const [activities, setActivities] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -171,19 +171,6 @@ export default function Activites() {
         </p>
       </div>
 
-      {(isConnected() || hasRefreshToken()) && (
-        <div className="mx-5 bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-3 flex gap-3 items-start">
-          <span className="text-amber-400 text-lg flex-shrink-0">⚠️</span>
-          <div>
-            <p className="text-xs font-semibold text-amber-300">Google Fit connecté</p>
-            <p className="text-xs text-amber-500 mt-0.5">
-              Les dépenses de ta montre Garmin sont déjà incluses dans ton TDEE dynamique.
-              Ajouter une séance ici créerait un double comptage.
-              Utilise ce journal uniquement pour les activités non tracées par Garmin.
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="px-5 flex flex-col gap-4">
 
@@ -327,62 +314,65 @@ export default function Activites() {
           )}
         </div>
 
-        {/* ── Section Import Garmin (US-11) ───────────────────────────────── */}
-        {/*
-         * NOTE TECHNIQUE — Intégration Garmin Connect :
-         * La Garmin Health API officielle (OAuth 2.0) requiert une validation Garmin
-         * (formulaire de demande d'accès, délai typique de 2-4 semaines). En attendant,
-         * cette section guide l'utilisateur pour transférer manuellement ses données.
-         * Roadmap Sprint 4 : implémenter le flux OAuth complet une fois l'approbation reçue.
-         */}
-        <div className="bg-[#1a1a2e] rounded-2xl p-5 shadow-xl">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#22223b] flex items-center justify-center text-xl">
-              🏃‍♂️
-            </div>
-            <div>
-              <h2 className="font-semibold text-white text-sm">Importer depuis Garmin Connect</h2>
-              <p className="text-xs text-gray-500">Synchronisation manuelle</p>
-            </div>
-            <span className="ml-auto text-[10px] font-medium bg-amber-500/15 text-amber-400
-                             border border-amber-500/30 px-2 py-0.5 rounded-full whitespace-nowrap">
-              MVP
-            </span>
-          </div>
-
-          <ol className="flex flex-col gap-2 mb-4">
-            {[
-              'Ouvrez Garmin Connect sur mobile ou web',
-              'Sélectionnez l\'activité souhaitée',
-              'Notez le nom de l\'activité et les calories brûlées',
-              'Collez ces infos dans le champ "Import rapide" ci-dessus',
-            ].map((step, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-400
-                                 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                  {i + 1}
-                </span>
-                <span className="text-xs text-gray-400">{step}</span>
-              </li>
-            ))}
-          </ol>
-
-          <a
-            href="https://connect.garmin.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl
-                       bg-[#22223b] border border-white/10 text-sm font-medium text-gray-300
-                       hover:bg-[#2a2a40] active:scale-95 transition-all duration-150"
+        {/* ── Section Import Garmin (dépliable — intégration OAuth en attente) ── */}
+        <div className="bg-[#1a1a2e] rounded-2xl shadow-xl overflow-hidden">
+          <button
+            onClick={() => setGarminOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-4
+                       text-white font-semibold text-sm hover:bg-white/5 transition-colors"
           >
-            <span>🌐</span>
-            Ouvrir Garmin Connect
-          </a>
+            <div className="flex items-center gap-2">
+              <span>🏃‍♂️</span>
+              <span>Importer depuis Garmin Connect</span>
+              <span className="text-[10px] font-medium bg-amber-500/15 text-amber-400
+                               border border-amber-500/30 px-2 py-0.5 rounded-full">
+                À venir
+              </span>
+            </div>
+            <svg
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${garminOpen ? 'rotate-180' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
 
-          <p className="text-[10px] text-gray-700 text-center mt-3">
-            L'intégration OAuth automatique sera disponible lors d'un prochain sprint
-            (approbation Garmin requise).
-          </p>
+          {garminOpen && (
+            <div className="px-5 pb-5 border-t border-white/10">
+              <p className="text-xs text-gray-500 mt-4 mb-3">
+                L'intégration OAuth Garmin est en attente d'approbation. En attendant, tu peux
+                copier manuellement les données depuis Garmin Connect.
+              </p>
+              <ol className="flex flex-col gap-2 mb-4">
+                {[
+                  'Ouvrez Garmin Connect sur mobile ou web',
+                  'Sélectionnez l\'activité souhaitée',
+                  'Notez le nom de l\'activité et les calories brûlées',
+                  'Collez ces infos dans le champ "Import rapide" du formulaire ci-dessus',
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-400
+                                     flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="text-xs text-gray-400">{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <a
+                href="https://connect.garmin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl
+                           bg-[#22223b] border border-white/10 text-sm font-medium text-gray-300
+                           hover:bg-[#2a2a40] active:scale-95 transition-all duration-150"
+              >
+                <span>🌐</span>
+                Ouvrir Garmin Connect
+              </a>
+            </div>
+          )}
         </div>
 
         {/* ── Activités du jour ───────────────────────────────────────────── */}

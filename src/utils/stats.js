@@ -108,8 +108,9 @@ export async function getWeeklyTrends(year, month, tdee) {
 
   return weeks
     .map(({ week, label, days }) => {
-      // Jours passés uniquement
-      const pastDays = days.filter(d => d.date <= today);
+      // Jours passés avec repas enregistrés uniquement (cohérent avec getMonthBilan)
+      // Exclure les jours sans repas évite que les zéros écrasent la moyenne ingérée
+      const pastDays = days.filter(d => d.date <= today && d.ingested > 0);
       if (pastDays.length === 0) return null;
 
       const avgIngested = Math.round(
