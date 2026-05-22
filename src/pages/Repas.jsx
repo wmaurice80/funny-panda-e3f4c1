@@ -10,6 +10,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMealsForDate } from '../db';
 import { syncedAddMeal, syncedDeleteMeal } from '../lib/syncManager';
+import { callClaude } from '../lib/claudeApi';
 import AnalyseResult from '../components/AnalyseResult';
 import MealCard from '../components/MealCard';
 import CameraCapture from '../components/CameraCapture';
@@ -62,37 +63,18 @@ function fileToBase64(file) {
  * Retourne l'objet JSON parsé.
  */
 async function analyserRepas(base64Data, mediaType) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('Clé API manquante. Vérifiez votre fichier .env (VITE_ANTHROPIC_API_KEY).');
-  }
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [
+  const json = await callClaude({
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: [
         {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64Data,
-              },
-            },
-            {
-              type: 'text',
-              text: `Tu es un nutritionniste expert. Analyse cette photo de repas et retourne UNIQUEMENT un objet JSON valide (sans markdown, sans explication) avec cette structure exacte:
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: base64Data },
+        },
+        {
+          type: 'text',
+          text: `Tu es un nutritionniste expert. Analyse cette photo de repas et retourne UNIQUEMENT un objet JSON valide (sans markdown, sans explication) avec cette structure exacte:
 {
   "aliments": [
     { "nom": "Nom de l'aliment", "calories": 150, "proteines": 12, "portion": "100g" }
@@ -103,28 +85,16 @@ async function analyserRepas(base64Data, mediaType) {
   "note": "Remarque courte si nécessaire"
 }
 Si tu ne peux pas analyser l'image, retourne: {"erreur": "Description du problème"}`,
-            },
-          ],
         },
       ],
-    }),
+    }],
   });
 
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`Erreur API (${response.status}) : ${errBody}`);
-  }
-
-  const json = await response.json();
   const rawText = json.content?.[0]?.text ?? '';
-
-  // Extraire le JSON même si Claude a ajouté du texte autour
   const match = rawText.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Réponse inattendue de Claude : ' + rawText);
-
   const parsed = JSON.parse(match[0]);
   if (parsed.erreur) throw new Error(parsed.erreur);
-
   return parsed;
 }
 

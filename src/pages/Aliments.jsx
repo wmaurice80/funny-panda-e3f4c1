@@ -7,6 +7,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncedAddMeal } from '../lib/syncManager';
+import { callClaude } from '../lib/claudeApi';
 import ProteinSources from '../components/ProteinSources';
 import DrinkSources from '../components/DrinkSources';
 
@@ -17,40 +18,23 @@ const OFF_SEARCH_URL = (query) =>
 
 const FETCH_TIMEOUT_MS = 5000;
 
-/** Envoie une description textuelle à Claude Haiku pour estimer les calories et protéines */
 async function estimerAlimentIA(description) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [{
-        role: 'user',
-        content: `Tu es un nutritionniste expert. Estime les calories et les protéines pour l'aliment ou la description suivante : "${description}".
+  const json = await callClaude({
+    max_tokens: 256,
+    messages: [{
+      role: 'user',
+      content: `Tu es un nutritionniste expert. Estime les calories et les protéines pour l'aliment ou la description suivante : "${description}".
 Retourne UNIQUEMENT un objet JSON valide (sans markdown) :
 {"calories": 180, "proteines": 14, "portion": "2 unités / 100g / etc.", "note": "estimation basée sur..."}
 Si impossible à estimer, retourne : {"erreur": "raison courte"}`,
-      }],
-    }),
+    }],
   });
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`API ${response.status}: ${errBody}`);
-  }
-  const json = await response.json();
   const raw = json.content?.[0]?.text ?? '';
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Réponse inattendue');
   const parsed = JSON.parse(match[0]);
   if (parsed.erreur) throw new Error(parsed.erreur);
-  return parsed; // { calories, proteines, portion, note }
+  return parsed;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

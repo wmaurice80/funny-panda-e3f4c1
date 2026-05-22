@@ -1,30 +1,18 @@
 // src/components/AnalyseResult.jsx
 import { useState, useCallback } from 'react';
+import { callClaude } from '../lib/claudeApi';
 
 async function reestimer(nom, portion) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [{
-        role: 'user',
-        content: `Tu es un nutritionniste expert. Estime les calories et protéines pour : "${nom}", portion : "${portion}".
+  const json = await callClaude({
+    max_tokens: 256,
+    messages: [{
+      role: 'user',
+      content: `Tu es un nutritionniste expert. Estime les calories et protéines pour : "${nom}", portion : "${portion}".
 Retourne UNIQUEMENT un JSON valide (sans markdown) :
 {"calories": 180, "proteines": 14}
 Si impossible : {"erreur": "raison"}`,
-      }],
-    }),
+    }],
   });
-  if (!response.ok) throw new Error(`API ${response.status}`);
-  const json = await response.json();
   const raw = json.content?.[0]?.text ?? '';
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Réponse inattendue');

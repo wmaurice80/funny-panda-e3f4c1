@@ -205,3 +205,39 @@ npm run dev -- --host   # dev local
 npm run build           # build prod
 git add -A && git commit -m "..." && git push  # deploy auto Netlify
 ```
+
+---
+
+## Backlog stratégique — IA locale + App native + Monétisation
+> Ajouté le 22 mai 2026
+
+### Architecture cible : Hybride 3 niveaux
+```
+Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
+      → [Niveau 2] API cloud économique (Gemini Flash / OpenRouter) si connecté
+      → [Niveau 3] Anthropic Haiku (actuel, premium)
+```
+
+### PRIORITÉ HAUTE — court terme
+- [ ] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic
+- [ ] **P1-02** Fallback Gemini Flash vision (quota gratuit généreux)
+- [ ] **P1-03** Setup Capacitor + build Android test
+
+### PRIORITÉ MOYENNE — moyen terme
+- [ ] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia)
+- [ ] **P2-02** TensorFlow.js food-101 local (analyse offline)
+- [ ] **P2-03** Pipeline local → lookup Open Food Facts → macros
+- [ ] **P2-04** Build iOS + soumission TestFlight
+
+### PRIORITÉ BASSE — long terme
+- [ ] **P3-01** RevenueCat + paywall in-app
+- [ ] **P3-02** Gate photo IA = premium uniquement (colonne `profiles.plan`)
+- [ ] **P3-03** Gemini Nano on-device Android (Pixel 8+ / Samsung S24+)
+- [ ] **P3-04** Apple VisionKit food recognition (iOS)
+- [ ] **P3-05** API Garmin native (quand approuvée)
+
+### Modèle freemium cible
+| Tier | Prix | Features |
+|---|---|---|
+| Gratuit | 0€ | Saisie manuelle, Open Food Facts, stats, sync cloud |
+| Premium | ~3-5€/mois ou ~25€/an | Analyse photo IA, historique illimité, export CSV |
