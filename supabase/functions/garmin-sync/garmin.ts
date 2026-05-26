@@ -1,5 +1,16 @@
-import GarminConnect from "npm:garmin-connect"
 import type { DailySummary, GarminActivity, WeightRecord } from "./types.ts"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface GarthTokens {
+  access_token: string
+  refresh_token: string
+  expires_at: number // timestamp Unix en secondes
+  token_type: string
+  scope?: string
+}
+
+// ─── Activity type mapping ────────────────────────────────────────────────────
 
 const ACTIVITY_TYPE_MAP: Record<string, string> = {
   running: "course",
@@ -24,27 +35,108 @@ function mapActivityType(typeKey: string): string {
   return ACTIVITY_TYPE_MAP[typeKey] ?? "autre"
 }
 
-export async function createGarminClient(email: string, password: string) {
+// ─── Token management ─────────────────────────────────────────────────────────
+
+export function loadTokens(): GarthTokens {
+  const raw = Deno.env.get("GARMIN_TOKENS")
+  if (!raw) {
+    throw new Error("GARMIN_TOKENS non configuré")
+  }
   try {
-    const client = new GarminConnect({ username: email, password })
-    await client.login(email, password)
-    return client
-  } catch (_err) {
-    throw new Error("Authentification Garmin échouée")
+    const tokens = JSON.parse(raw) as GarthTokens
+    if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at) {
+      throw new Error("Format invalide")
+    }
+    return tokens
+  } catch {
+    throw new Error("GARMIN_TOKENS non configuré")
   }
 }
 
-export async function fetchDailySummary(
-  client: ReturnType<typeof GarminConnect>,
-  date: string,
-): Promise<DailySummary | null> {
+function isTokenExpired(tokens: GarthTokens): boolean {
+  return Date.now() / 1000 > tokens.expires_at - 60
+}
+
+async function refreshAccessToken(tokens: GarthTokens): Promise<GarthTokens> {
+  const res = await fetch(
+    "https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.refresh_token}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "GCM-iOS-5.7.2.1",
+      },
+      body: "grant_type=refresh_token",
+    },
+  )
+
+  if (!res.ok) {
+    throw new Error("Refresh token expiré — relancer python sync.py --test-auth")
+  }
+
+  const data = await res.json() as Record<string, unknown>
+  const newAccessToken = data.access_token as string | undefined
+  const expiresIn = data.expires_in as number | undefined
+
+  if (!newAccessToken || !expiresIn) {
+    throw new Error("Refresh token expiré — relancer python sync.py --test-auth")
+  }
+
+  return {
+    ...tokens,
+    access_token: newAccessToken,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+  }
+}
+
+async function getValidToken(): Promise<string> {
+  let tokens = loadTokens()
+  if (isTokenExpired(tokens)) {
+    tokens = await refreshAccessToken(tokens)
+  }
+  return tokens.access_token
+}
+
+// ─── Core fetch helper ────────────────────────────────────────────────────────
+
+async function garminFetch(path: string, accessToken: string): Promise<unknown> {
+  const res = await fetch(`https://connectapi.garmin.com${path}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "GCM-iOS-5.7.2.1",
+      NK: "NT",
+    },
+  })
+
+  if (res.status === 401) {
+    throw new Error("Token invalide ou expiré")
+  }
+  if (!res.ok) {
+    throw new Error(`Garmin API ${res.status}`)
+  }
+
+  return res.json()
+}
+
+// ─── Public API functions ─────────────────────────────────────────────────────
+
+export async function fetchDailySummary(date: string): Promise<DailySummary | null> {
   try {
-    let stats: Record<string, unknown>
-    try {
-      stats = await client.getDailyStats(date)
-    } catch {
-      stats = await client.getStats(date)
-    }
+    const accessToken = await getValidToken()
+
+    const profile = await garminFetch(
+      "/userprofile-service/userprofile/personal-information",
+      accessToken,
+    ) as Record<string, unknown>
+
+    const displayName = profile?.userName as string | undefined
+    if (!displayName) return null
+
+    const stats = await garminFetch(
+      `/usersummary-service/usersummary/daily/${displayName}?calendarDate=${date}`,
+      accessToken,
+    ) as Record<string, unknown>
 
     const totalKcal = stats?.totalKilocalories as number | undefined
     if (!totalKcal || totalKcal === 0) return null
@@ -56,23 +148,24 @@ export async function fetchDailySummary(
       bmrKcal: Number(stats?.bmrKilocalories ?? 0),
       steps: Number(stats?.steps ?? 0),
       restingHr:
-        stats?.restingHeartRate != null
-          ? Number(stats.restingHeartRate)
-          : null,
+        stats?.restingHeartRate != null ? Number(stats.restingHeartRate) : null,
     }
-  } catch {
+  } catch (err) {
+    console.error("[fetchDailySummary]", (err as Error).message)
     return null
   }
 }
 
-export async function fetchActivities(
-  client: ReturnType<typeof GarminConnect>,
-  date: string,
-): Promise<GarminActivity[]> {
+export async function fetchActivities(date: string): Promise<GarminActivity[]> {
   try {
-    const activities = await client.getActivities(0, 10)
+    const accessToken = await getValidToken()
 
-    if (!Array.isArray(activities)) return []
+    const data = await garminFetch(
+      `/activitylist-service/activities/search/activities?startDate=${date}&endDate=${date}&limit=20`,
+      accessToken,
+    )
+
+    const activities = Array.isArray(data) ? data : []
 
     return activities
       .filter((a: Record<string, unknown>) => {
@@ -94,39 +187,40 @@ export async function fetchActivities(
           note: "Importé Garmin — " + ((a?.activityName as string) ?? ""),
         }
       })
-  } catch {
+  } catch (err) {
+    console.error("[fetchActivities]", (err as Error).message)
     return []
   }
 }
 
-export async function fetchWeight(
-  client: ReturnType<typeof GarminConnect>,
-  date: string,
-): Promise<WeightRecord | null> {
+export async function fetchWeight(date: string): Promise<WeightRecord | null> {
   try {
-    let composition: Record<string, unknown>
-    try {
-      composition = await client.getBodyComposition(date, date)
-    } catch {
-      composition = await client.getBodyCompositionForDate(date)
-    }
+    const accessToken = await getValidToken()
 
+    const data = await garminFetch(
+      `/weight-service/weight/dateRange?startDate=${date}&endDate=${date}`,
+      accessToken,
+    ) as Record<string, unknown>
+
+    const summaries = data?.dailyWeightSummaries as Record<string, unknown>[] | undefined
     const weightGrams =
-      (composition?.weight as number | undefined) ??
-      (composition?.dailyWeightSummaries as Record<string, unknown>[] | undefined)?.[0]
-        ?.weight as number | undefined
+      (summaries?.[0]?.weight as number | undefined) ??
+      (data?.weight as number | undefined)
 
     if (!weightGrams || weightGrams === 0) return null
 
     const poidsKg = Math.round((Number(weightGrams) / 1000) * 10) / 10
-    const bodyFat = composition?.bodyFat as number | undefined
+    const bodyFat =
+      (summaries?.[0]?.bodyFat as number | undefined) ??
+      (data?.bodyFat as number | undefined)
 
     return {
       date,
       poidsKg,
       masseGrassePct: bodyFat != null ? Number(bodyFat) : null,
     }
-  } catch {
+  } catch (err) {
+    console.error("[fetchWeight]", (err as Error).message)
     return null
   }
 }

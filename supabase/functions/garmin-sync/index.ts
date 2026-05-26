@@ -1,15 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import {
-  createGarminClient,
   fetchActivities,
   fetchDailySummary,
   fetchWeight,
+  loadTokens,
 } from "./garmin.ts"
 import type { SyncReport } from "./types.ts"
 
-const GARMIN_EMAIL = Deno.env.get("GARMIN_EMAIL")!
-const GARMIN_PASSWORD = Deno.env.get("GARMIN_PASSWORD")!
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const CALSNAP_USER_ID = Deno.env.get("CALSNAP_USER_ID")!
@@ -47,6 +45,18 @@ serve(async (req) => {
   }
 
   try {
+    try {
+      loadTokens() // valide que GARMIN_TOKENS est configuré
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ success: false, error: (err as Error).message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      )
+    }
+
     let days = 1
     try {
       const body = await req.json()
@@ -58,20 +68,6 @@ serve(async (req) => {
     }
 
     const dates = generateDates(days)
-
-    let garminClient: Awaited<ReturnType<typeof createGarminClient>>
-    try {
-      garminClient = await createGarminClient(GARMIN_EMAIL, GARMIN_PASSWORD)
-    } catch (err) {
-      return new Response(
-        JSON.stringify({ success: false, error: (err as Error).message }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      )
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     const reports: SyncReport[] = []
@@ -86,7 +82,7 @@ serve(async (req) => {
       }
 
       // — Daily summary (TDEE) —
-      const summary = await fetchDailySummary(garminClient, date)
+      const summary = await fetchDailySummary(date)
       if (summary) {
         try {
           const { error } = await supabase
@@ -102,7 +98,7 @@ serve(async (req) => {
       await sleep(1000)
 
       // — Activités —
-      const activities = await fetchActivities(garminClient, date)
+      const activities = await fetchActivities(date)
       for (const activity of activities) {
         try {
           const { error } = await supabase.from("activities").upsert(
@@ -131,7 +127,7 @@ serve(async (req) => {
       await sleep(1000)
 
       // — Poids —
-      const weight = await fetchWeight(garminClient, date)
+      const weight = await fetchWeight(date)
       if (weight) {
         try {
           const { error } = await supabase.from("weights").upsert(
