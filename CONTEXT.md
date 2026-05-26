@@ -1,5 +1,5 @@
 # CalSnap — Contexte projet (Claude)
-> Dernière mise à jour : 22 mai 2026 (session 2)
+> Dernière mise à jour : 26 mai 2026 (session 3)
 
 ## Vision produit
 Application mobile PWA de suivi calorique et protéique par photo de repas et saisie manuelle, avec synchronisation cloud Supabase et intégration Google Fit / Garmin.
@@ -224,6 +224,28 @@ git add -A && git commit -m "..." && git push  # deploy auto Netlify
 ### Git
 - Tag `v1.0.0-webapp` créé sur `main` — snapshot PWA stable
 - Branche `roadmap/native-monetisation` créée pour les sprints backlog P1/P2/P3
+
+---
+
+## Résumé de session — 26 mai 2026
+
+### Corrections et améliorations livrées
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `Repas.jsx`, `AnalyseResult.jsx` | Prompts IA modifiés : protéines avec décimales (ex: 12.5g au lieu de 12g) — précision nutritionnelle accrue |
+| 2 | `AnalyseResult.jsx` | Bouton supprimer (×) en haut à droite de chaque aliment détecté — permet de retirer les faux positifs avant validation |
+| 3 | `Activites.jsx` | Formulaire durée : 2 champs séparés (heures + minutes) au lieu d'un seul champ "minutes" — UX améliorée pour séances longues |
+| 4 | `Activites.jsx` | Import rapide Garmin parse maintenant aussi les heures (ex: "2h 30min 350 kcal") |
+| 5 | `utils/stats.js`, `WeeklyTrends.jsx` | Calcul et affichage du solde net de masse grasse hebdomadaire (formule : netBalance / 7700 kcal = kg) — vert si perte, rouge si gain |
+| 6 | `utils/bmr.js` | Validation formules : Mifflin-St Jeor (BMR) + facteurs d'activité calibrés = optimales, rien à changer |
+
+### Git
+- Commits `7f89650`, `748ed42` (fix syntaxe), `3e67399` pushés sur `main`
+- Merge `roadmap/native-monetisation` → `main` pour déploiement Netlify
+
+### Bugs corrigés
+- **Erreur build Netlify** : balise `</div>` en trop dans `Activites.jsx` empêchait la compilation — corrigée avant déploiement
+- **Cache navigateur/PWA** : changements invisibles jusqu'à hard refresh + merge vers `main`
 
 ---
 
