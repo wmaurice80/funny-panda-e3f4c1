@@ -113,15 +113,18 @@ export async function getWeeklyTrends(year, month, tdee) {
       const pastDays = days.filter(d => d.date <= today && d.ingested > 0);
       if (pastDays.length === 0) return null;
 
-      const avgIngested = Math.round(
-        pastDays.reduce((s, d) => s + d.ingested, 0) / pastDays.length
-      );
-      const avgBurned = Math.round(
-        pastDays.reduce((s, d) => s + d.burned, 0) / pastDays.length
-      );
+      const totalIngested = pastDays.reduce((s, d) => s + d.ingested, 0);
+      const totalBurned = pastDays.reduce((s, d) => s + d.burned, 0);
+
+      const avgIngested = Math.round(totalIngested / pastDays.length);
+      const avgBurned = Math.round(totalBurned / pastDays.length);
       const trend = avgIngested > avgBurned ? 'surplus' : 'deficit';
 
-      return { week, label, avgIngested, avgBurned, trend };
+      // Calcul solde net de masse grasse : 7700 kcal = 1 kg de graisse
+      const netBalance = totalIngested - totalBurned;
+      const fatKg = Math.round((netBalance / 7700) * 100) / 100;
+
+      return { week, label, avgIngested, avgBurned, trend, netBalance, fatKg };
     })
     .filter(Boolean);
 }

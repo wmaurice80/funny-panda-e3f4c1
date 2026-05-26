@@ -3,7 +3,7 @@
 /**
  * WeeklyTrends — Tendances hebdomadaires du mois
  *
- * @param {{ trends: Array<{week, label, avgIngested, avgBurned, trend}> }} props
+ * @param {{ trends: Array<{week, label, avgIngested, avgBurned, trend, netBalance, fatKg}> }} props
  */
 export default function WeeklyTrends({ trends }) {
   return (
@@ -21,7 +21,7 @@ export default function WeeklyTrends({ trends }) {
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {trends.map(({ week, label, avgIngested, avgBurned, trend }) => {
+          {trends.map(({ week, label, avgIngested, avgBurned, trend, netBalance, fatKg }) => {
             const isSurplus = trend === 'surplus';
             const trendColor = isSurplus ? 'text-red-400' : 'text-emerald-400';
             const trendBg = isSurplus
@@ -30,6 +30,8 @@ export default function WeeklyTrends({ trends }) {
             const arrow = isSurplus ? '↑' : '↓';
             const diff = avgIngested - avgBurned;
             const diffSign = diff > 0 ? '+' : '';
+            const fatSign = fatKg > 0 ? '+' : '';
+            const fatColor = fatKg < 0 ? 'text-emerald-400' : 'text-red-400';
 
             return (
               <div
@@ -68,6 +70,15 @@ export default function WeeklyTrends({ trends }) {
                   <span className="text-[10px] text-gray-600 uppercase tracking-wide">
                     {isSurplus ? 'surplus' : 'déficit'}
                   </span>
+                  {/* Solde net de masse grasse */}
+                  <div className="mt-1.5 pt-1.5 border-t border-white/10">
+                    <span className={`text-xs font-bold ${fatColor}`}>
+                      {fatSign}{Math.abs(fatKg).toFixed(2)} kg
+                    </span>
+                    <span className="text-[10px] text-gray-600 block mt-0.5">
+                      masse grasse
+                    </span>
+                  </div>
                 </div>
               </div>
             );
