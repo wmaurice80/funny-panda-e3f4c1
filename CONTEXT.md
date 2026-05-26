@@ -249,6 +249,77 @@ git add -A && git commit -m "..." && git push  # deploy auto Netlify
 
 ---
 
+## Epic GARMIN-SYNC — Synchronisation Python → Supabase
+> Ajouté le 26 mai 2026 | Branche : feature/garmin-python-sync | Tag base : v1.0.2
+
+### Sprint 1 — Fondations & Fetch
+
+#### US-01 · Auth Garmin sécurisée
+- Credentials depuis `.env` (GARMIN_EMAIL, GARMIN_PASSWORD)
+- Token `garth` mis en cache dans `~/.garth` (évite re-login à chaque run, valide ~60 jours)
+- `GarminConnectAuthenticationError` → arrêt immédiat, jamais de retry (intervention humaine)
+- `python sync.py --test-auth` → `✓ Connecté en tant que [prénom]`
+
+#### US-02 · Fetch daily summary (TDEE mesuré)
+- `get_stats(date)` → champ `totalKilocalories`
+- UPDATE `profiles.tdee_mesure` uniquement si valeur > 0
+- Si données absentes (journée incomplète) → skip + warning
+
+#### US-03 · Fetch activités du jour
+- `get_activities_by_date(date, date)` — durée en secondes ÷ 60 = minutes
+- Mapping `activityType.typeKey` → type CalSnap : running→course, cycling→velo, swimming→natation, walking→marche, strength_training→musculation, hiit→hiit, yoga→yoga, *→autre
+- Déduplication via `garmin_activity_id` (UPSERT — nécessite migration Supabase)
+- Note auto : `"Importé Garmin — [activityName]"`
+
+#### US-04 · Push Supabase robuste
+- Auth via `SUPABASE_SERVICE_ROLE_KEY` (bypass RLS)
+- Retry 3× backoff exponentiel (1s/2s/4s) sur 5xx
+- Erreurs 4xx → log + skip (pas de retry)
+
+### Sprint 2 — Robustesse & Poids
+
+#### US-05 · Fetch poids Garmin
+- `get_body_composition(startdate, enddate)`
+- **Conversion** : `weight` retourné en **grammes** → ÷ 1000 → arrondi à 0.1 kg
+  - Exemple : `79500 g ÷ 1000 = 79.5 kg`
+- Si `weight = null` ou `weight = 0` → skip silencieux (pas de Garmin Scale ce jour)
+- UPSERT sur contrainte UNIQUE(user_id, date)
+- Si `bodyFat` disponible → UPDATE `profiles.masse_grasse` (arrondi à 0.1)
+- Log : `[POIDS] 2026-05-26 → 79.5 kg (MG: 37.5%)`
+
+#### US-06 · Mode --dry-run
+- Affiche toutes les opérations sans écrire en base
+
+#### US-07 · Fetch historique N jours
+- `--days N` (défaut : 1) — délai 1s entre chaque jour
+
+#### US-08 · Circuit breaker & rate limit
+- Délai 1s entre appels Garmin
+- HTTP 429 → wait Retry-After (défaut 60s) + retry 1×
+- 3 erreurs consécutives → circuit breaker ouvert + arrêt
+- Timeout par requête : 10s
+
+#### US-09 · Config .env + config.yaml
+- `.env` : GARMIN_EMAIL, GARMIN_PASSWORD, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CALSNAP_USER_ID
+- `.env.example` + `config.example.yaml` fournis, `.env` dans `.gitignore`
+
+#### US-10 · Cron automatique (P2)
+- Cron 7h00 macOS (launchd) — log `~/.calsnap/sync.log`
+
+### Migration Supabase requise
+```sql
+ALTER TABLE activities ADD COLUMN garmin_activity_id BIGINT;
+CREATE UNIQUE INDEX idx_activities_garmin_id ON activities(user_id, garmin_activity_id);
+```
+Impact appli : zéro — colonne nullable, ignorée par le code React.
+
+### Risques clés
+- Auth MFA headless → token cache garth, re-auth manuelle max 1x/60j
+- SSO Garmin instable → pin version `garminconnect==X.Y.Z`
+- Poids en grammes (pas kg) → conversion ÷1000 impérative
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
