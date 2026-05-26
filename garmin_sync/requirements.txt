@@ -1,0 +1,4 @@
+garminconnect
+garth
+python-dotenv
+supabase
