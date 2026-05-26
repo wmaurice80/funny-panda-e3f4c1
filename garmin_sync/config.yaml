@@ -1,0 +1,16 @@
+# CalSnap Garmin Sync — configuration optionnelle
+# Toutes les valeurs sont des overrides des défauts du script
+
+sync:
+  days_back: 1              # Nombre de jours à synchroniser (override de --days)
+  delay_between_calls: 1.0  # Secondes entre chaque appel Garmin API
+  request_timeout: 10       # Timeout par requête en secondes
+
+circuit_breaker:
+  max_failures: 3           # Erreurs consécutives avant arrêt
+  reset_timeout: 60         # Secondes avant tentative de reset
+
+activity_type_map_overrides: {}
+  # Exemple d'override du mapping Garmin → CalSnap :
+  # "virtual_ride": "velo"
+  # "open_water_swimming": "natation"
