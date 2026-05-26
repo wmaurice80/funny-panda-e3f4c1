@@ -25,6 +25,6 @@ def _require(name: str) -> str:
 
 GARMIN_EMAIL: str = _require("GARMIN_EMAIL")
 GARMIN_PASSWORD: str = _require("GARMIN_PASSWORD")
-SUPABASE_URL: str = _require("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY: str = _require("SUPABASE_SERVICE_ROLE_KEY")
-CALSNAP_USER_ID: str = _require("CALSNAP_USER_ID")
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+CALSNAP_USER_ID: str = os.getenv("CALSNAP_USER_ID", "")

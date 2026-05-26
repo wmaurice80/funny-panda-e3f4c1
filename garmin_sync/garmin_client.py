@@ -21,26 +21,26 @@ class AuthenticationError(Exception):
 
 def get_client() -> Garmin:
     """Return an authenticated Garmin client, using cached tokens when available."""
-    client = Garmin(tokenstore=TOKEN_STORE)
-
+    # Try resuming from cached garth tokens
     try:
-        client.login()
+        client = Garmin(email=GARMIN_EMAIL, password=GARMIN_PASSWORD)
+        client.garth.load(TOKEN_STORE)
+        client.get_full_name()  # test rapide pour vérifier que le token est valide
         return client
-    except GarminConnectAuthenticationError:
+    except Exception:
         pass
 
-    # Cached session invalid or missing — try email/password
-    client = Garmin(email=GARMIN_EMAIL, password=GARMIN_PASSWORD)
+    # Tokens invalides ou absents — login email/password
     try:
+        client = Garmin(email=GARMIN_EMAIL, password=GARMIN_PASSWORD)
         client.login()
+        client.garth.dump(TOKEN_STORE)
+        return client
     except GarminConnectAuthenticationError:
         raise AuthenticationError(
             "Authentification Garmin échouée. "
             "Relancer avec --reauth ou vérifier MFA."
         )
-
-    garth.dump(TOKEN_STORE)
-    return client
 
 
 def test_auth() -> None:

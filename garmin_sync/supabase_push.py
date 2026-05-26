@@ -15,7 +15,13 @@ from config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CALSNAP_USER_ID
 
 logger = logging.getLogger(__name__)
 
-client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+_client: Client | None = None
+
+def _get_client() -> Client:
+    global _client
+    if _client is None:
+        _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    return _client
 
 # ---------------------------------------------------------------------------
 # Helpers internes
@@ -95,7 +101,7 @@ def upsert_activity(activity: dict) -> bool:
 
     def _do():
         (
-            client.table("activities")
+            _get_client().table("activities")
             .upsert(
                 activity,
                 on_conflict="user_id,garmin_activity_id",
@@ -126,7 +132,7 @@ def update_tdee(tdee_kcal: int) -> bool:
 
     def _do():
         (
-            client.table("profiles")
+            _get_client().table("profiles")
             .update({"tdee_mesure": tdee_kcal})
             .eq("id", CALSNAP_USER_ID)
             .execute()
@@ -148,7 +154,7 @@ def upsert_weight(date: str, poids_kg: float, masse_grasse_pct: float | None = N
 
     def _do_weight():
         (
-            client.table("weights")
+            _get_client().table("weights")
             .upsert(
                 {"user_id": CALSNAP_USER_ID, "date": date, "poids": poids_kg},
                 on_conflict="user_id,date",
@@ -166,7 +172,7 @@ def upsert_weight(date: str, poids_kg: float, masse_grasse_pct: float | None = N
 
         def _do_masse_grasse():
             (
-                client.table("profiles")
+                _get_client().table("profiles")
                 .update({"masse_grasse": masse_grasse_pct})
                 .eq("id", CALSNAP_USER_ID)
                 .execute()
