@@ -293,7 +293,6 @@ export default function Activites() {
                   />
                 ), errors.caloriesBrulees)}
               </div>
-            </div>
 
               {/* Date + Heure côte à côte */}
               <div className="grid grid-cols-2 gap-3">
