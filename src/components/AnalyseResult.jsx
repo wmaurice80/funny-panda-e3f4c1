@@ -9,7 +9,8 @@ async function reestimer(nom, portion) {
       role: 'user',
       content: `Tu es un nutritionniste expert. Estime les calories et protéines pour : "${nom}", portion : "${portion}".
 Retourne UNIQUEMENT un JSON valide (sans markdown) :
-{"calories": 180, "proteines": 14}
+{"calories": 180, "proteines": 14.5}
+IMPORTANT: Les protéines peuvent être des décimales (ex: 14.5). Sois précis.
 Si impossible : {"erreur": "raison"}`,
     }],
   });
@@ -21,7 +22,7 @@ Si impossible : {"erreur": "raison"}`,
   return parsed;
 }
 
-function AlimentRow({ aliment, onChange }) {
+function AlimentRow({ aliment, onChange, onDelete }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,7 +41,19 @@ function AlimentRow({ aliment, onChange }) {
   }
 
   return (
-    <li className="flex flex-col gap-2 bg-[#0f0f1a] rounded-xl px-4 py-3">
+    <li className="flex flex-col gap-2 bg-[#0f0f1a] rounded-xl px-4 py-3 relative">
+      {/* Bouton supprimer en haut à droite */}
+      <button
+        type="button"
+        onClick={onDelete}
+        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-900/30 border border-red-700/40
+                   text-red-400 text-xs font-bold hover:bg-red-900/50 active:scale-95 transition-all duration-150
+                   flex items-center justify-center"
+        title="Supprimer cet aliment"
+      >
+        ×
+      </button>
+
       {/* Nom éditable */}
       <input
         type="text"
@@ -119,6 +132,10 @@ export default function AnalyseResult({ result, onConfirm, onCancel }) {
     setAliments(prev => prev.map((a, i) => i === index ? updated : a));
   }, []);
 
+  const handleDelete = useCallback((index) => {
+    setAliments(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const fiabiliteColor = {
     haute: 'text-emerald-400',
     moyenne: 'text-yellow-400',
@@ -149,6 +166,7 @@ export default function AnalyseResult({ result, onConfirm, onCancel }) {
               key={i}
               aliment={aliment}
               onChange={updated => handleChange(i, updated)}
+              onDelete={() => handleDelete(i)}
             />
           ))}
         </ul>

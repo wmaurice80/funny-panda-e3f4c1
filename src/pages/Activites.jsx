@@ -29,7 +29,8 @@ function currentTime() {
 
 const EMPTY_FORM = {
   type: 'course',
-  duree: '',
+  dureeHeures: '',
+  dureeMinutes: '',
   caloriesBrulees: '',
   date: todayISO(),
   heure: currentTime(),
@@ -67,8 +68,15 @@ export default function Activites() {
   function validate() {
     const e = {};
     if (!form.type) e.type = 'Choisissez un type';
-    if (!form.duree || isNaN(Number(form.duree)) || Number(form.duree) <= 0)
-      e.duree = 'Durée invalide (ex : 30)';
+
+    const heures = Number(form.dureeHeures) || 0;
+    const minutes = Number(form.dureeMinutes) || 0;
+    const totalMinutes = heures * 60 + minutes;
+
+    if (totalMinutes <= 0) {
+      e.duree = 'Durée invalide (ex : 1h 30min)';
+    }
+
     if (!form.caloriesBrulees || isNaN(Number(form.caloriesBrulees)) || Number(form.caloriesBrulees) < 0)
       e.caloriesBrulees = 'Calories invalides (ex : 250)';
     if (!form.date) e.date = 'Date requise';
@@ -83,9 +91,13 @@ export default function Activites() {
     setErrors({});
     setSaving(true);
     try {
+      const heures = Number(form.dureeHeures) || 0;
+      const minutes = Number(form.dureeMinutes) || 0;
+      const totalMinutes = heures * 60 + minutes;
+
       await syncedAddActivity({
         type:            form.type,
-        duree:           Number(form.duree),
+        duree:           totalMinutes,
         caloriesBrulees: Number(form.caloriesBrulees),
         date:            form.date,
         heure:           form.heure,
@@ -131,15 +143,18 @@ export default function Activites() {
     // Cherche un nombre suivi (ou précédé) de "kcal" ou "cal"
     const calMatch = raw.match(/(\d+)\s*(?:kcal|cal)/i);
     const calories = calMatch ? calMatch[1] : '';
-    // Cherche un nombre suivi de "min"
-    const durMatch = raw.match(/(\d+)\s*min/i);
-    const duree = durMatch ? durMatch[1] : '';
+    // Cherche un nombre suivi de "min" ou "h"
+    const durMatchMin = raw.match(/(\d+)\s*min/i);
+    const durMatchHeure = raw.match(/(\d+)\s*h/i);
+    const minutes = durMatchMin ? durMatchMin[1] : '';
+    const heures = durMatchHeure ? durMatchHeure[1] : '';
 
     setForm((prev) => ({
       ...prev,
       type:            detectedType,
       caloriesBrulees: calories || prev.caloriesBrulees,
-      duree:           duree    || prev.duree,
+      dureeMinutes:    minutes  || prev.dureeMinutes,
+      dureeHeures:     heures   || prev.dureeHeures,
     }));
   }
 
@@ -239,17 +254,34 @@ export default function Activites() {
                 </select>
               ), errors.type)}
 
-              {/* Durée + Calories côte à côte */}
-              <div className="grid grid-cols-2 gap-3">
-                {field('Durée (min)', (
-                  <input
-                    type="number" min="1" inputMode="numeric"
-                    value={form.duree}
-                    onChange={(e) => setForm((p) => ({ ...p, duree: e.target.value }))}
-                    placeholder="45"
-                    className={inputCls}
-                  />
-                ), errors.duree)}
+              {/* Durée (heures + minutes) + Calories */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1.5 block">
+                    Durée
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number" min="0" inputMode="numeric"
+                      value={form.dureeHeures}
+                      onChange={(e) => setForm((p) => ({ ...p, dureeHeures: e.target.value }))}
+                      placeholder="0"
+                      className={inputCls + ' text-center'}
+                    />
+                    <input
+                      type="number" min="0" max="59" inputMode="numeric"
+                      value={form.dureeMinutes}
+                      onChange={(e) => setForm((p) => ({ ...p, dureeMinutes: e.target.value }))}
+                      placeholder="30"
+                      className={inputCls + ' text-center'}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <p className="text-xs text-gray-600 text-center">heures</p>
+                    <p className="text-xs text-gray-600 text-center">minutes</p>
+                  </div>
+                  {errors.duree && <p className="text-xs text-red-400 mt-1.5">{errors.duree}</p>}
+                </div>
 
                 {field('Calories brûlées', (
                   <input
@@ -261,6 +293,7 @@ export default function Activites() {
                   />
                 ), errors.caloriesBrulees)}
               </div>
+            </div>
 
               {/* Date + Heure côte à côte */}
               <div className="grid grid-cols-2 gap-3">

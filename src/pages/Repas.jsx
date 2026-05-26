@@ -77,13 +77,14 @@ async function analyserRepas(base64Data, mediaType) {
           text: `Tu es un nutritionniste expert. Analyse cette photo de repas et retourne UNIQUEMENT un objet JSON valide (sans markdown, sans explication) avec cette structure exacte:
 {
   "aliments": [
-    { "nom": "Nom de l'aliment", "calories": 150, "proteines": 12, "portion": "100g" }
+    { "nom": "Nom de l'aliment", "calories": 150, "proteines": 12.5, "portion": "100g" }
   ],
   "totalCalories": 450,
-  "totalProteines": 24,
+  "totalProteines": 24.5,
   "fiabilite": "haute|moyenne|basse",
   "note": "Remarque courte si nécessaire"
 }
+IMPORTANT: Les protéines peuvent être des décimales (ex: 12.5). Sois précis.
 Si tu ne peux pas analyser l'image, retourne: {"erreur": "Description du problème"}`,
         },
       ],
