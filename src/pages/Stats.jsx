@@ -331,6 +331,20 @@ export default function Stats() {
                   </div>
                 </div>
 
+                {/* Déficit réel vs TDEE */}
+                {d.burned > 0 && (() => {
+                  const deficitReel = d.burned - d.ingested;
+                  const isDeficit = deficitReel >= 0;
+                  return (
+                    <div className="border-t border-white/5 pt-3 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">📉 Déficit réel vs TDEE</span>
+                      <span className={`text-sm font-bold ${isDeficit ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {isDeficit ? '-' : '+'}{Math.abs(deficitReel).toLocaleString('fr-FR')} kcal
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 {/* Protéines */}
                 {proteinGoal > 0 && (
                   <div className="border-t border-white/5 pt-3 flex items-center justify-between">
