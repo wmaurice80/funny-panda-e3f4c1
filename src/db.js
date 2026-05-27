@@ -73,6 +73,19 @@ export async function deleteProfile() {
   return db.delete('profile', 'user');
 }
 
+/** Vide tous les stores — à appeler au logout ou lors d'un changement d'utilisateur */
+export async function clearAllLocalData() {
+  const db = await getDB();
+  const tx = db.transaction(['profile', 'meals', 'activities', 'weights'], 'readwrite');
+  await Promise.all([
+    tx.objectStore('profile').clear(),
+    tx.objectStore('meals').clear(),
+    tx.objectStore('activities').clear(),
+    tx.objectStore('weights').clear(),
+  ]);
+  await tx.done;
+}
+
 // ─── MEALS ──────────────────────────────────────────────────────────────────
 
 /** Retourne tous les repas */

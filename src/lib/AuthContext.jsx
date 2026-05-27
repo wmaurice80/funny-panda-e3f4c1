@@ -2,7 +2,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { pullProfile, pullAllMeals, pullAllActivities, pullAllWeights } from './supabaseDb'
-import { saveProfile, addMeal, addActivity, addWeight } from '../db'
+import { saveProfile, addMeal, addActivity, addWeight, clearAllLocalData } from '../db'
+
+const LAST_USER_KEY = 'calsnap_last_user_id'
 
 async function syncFromSupabase() {
   try {
@@ -52,12 +54,22 @@ export function AuthProvider({ children }) {
     })
 
     // Écoute des changements d'état d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
       if (event === 'SIGNED_IN') {
+        const newUserId = session?.user?.id
+        const lastUserId = localStorage.getItem(LAST_USER_KEY)
+        if (lastUserId && lastUserId !== newUserId) {
+          await clearAllLocalData()
+        }
+        localStorage.setItem(LAST_USER_KEY, newUserId)
         setSyncing(true)
         syncFromSupabase().finally(() => setSyncing(false))
+      }
+      if (event === 'SIGNED_OUT') {
+        await clearAllLocalData()
+        localStorage.removeItem(LAST_USER_KEY)
       }
     })
 
