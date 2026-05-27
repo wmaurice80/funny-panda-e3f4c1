@@ -320,6 +320,85 @@ Impact appli : zéro — colonne nullable, ignorée par le code React.
 
 ---
 
+## Résumé de session — 27 mai 2026
+
+### Objectif
+Intégration Garmin sync mobile-first : Edge Function Supabase + bouton manuel dans l'app (pas un script Mac).
+
+### Livré
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `garmin_sync/` | Script Python complet (US-01→10) : auth, fetch TDEE/activités/poids, circuit breaker, dry-run, historique |
+| 2 | `supabase/functions/garmin-sync/` | Edge Function Deno/TS fetch natif (zéro npm) — auth via tokens OAuth2 `GARMIN_TOKENS` |
+| 3 | `supabase/functions/garmin-sync/garmin.ts` | loadTokens, refreshAccessToken auto, fetchDailySummary/Activities/Weight |
+| 4 | `supabase/functions/garmin-sync/index.ts` | Orchestrateur POST, CORS calsnapwmp.netlify.app, rapport JSON |
+| 5 | `supabase/functions/garmin-sync/cron.sql` | pg_cron 0 5 * * * (7h Paris) pour sync automatique |
+| 6 | `src/pages/Integrations.jsx` | Card Garmin active : bouton "Sync Garmin maintenant", états résultat/erreur |
+| 7 | `garmin_sync/migrations/001_add_garmin_activity_id.sql` | Colonne déduplication (nullable, zéro impact app) |
+| 8 | `garmin_sync/garmin_auth.py` | Script one-shot pour générer tokens garth |
+
+### Git
+- Branche `feature/garmin-python-sync` → mergée sur `main` (commit `738806b`)
+- Edge Function déployée sur Supabase : `lhcouyccseuyczcmatoa`
+- Netlify auto-déployé depuis `main`
+
+### Secrets Supabase configurés
+- `CALSNAP_USER_ID` ✅
+- `GARMIN_EMAIL` ✅
+- `GARMIN_PASSWORD` ✅ (plus nécessaire — peut être supprimé)
+- `GARMIN_TOKENS` ❌ **MANQUANT — bloquant**
+
+### ⚠️ Blocage actuel — GARMIN_TOKENS manquant
+L'Edge Function est déployée mais retourne `{"success":false,"error":"GARMIN_TOKENS non configuré"}` jusqu'à ce que le secret soit renseigné.
+
+**Cause :** rate limit Garmin au niveau du compte (trop de tentatives d'auth programmatiques).
+**Solution :** attendre 48-72h sans aucune tentative, puis exécuter :
+```bash
+GARMIN_EMAIL=wmaurice.peroumal@gmail.com \
+GARMIN_PASSWORD=ton_mdp_garmin \
+.venv/bin/python3 /Users/wmaurice/projects/calsnap/garmin_sync/garmin_auth.py
+```
+Le script affiche le JSON → copier dans Supabase :
+```bash
+supabase secrets set \
+  GARMIN_TOKENS='{"access_token":"...","refresh_token":"...","expires_at":...,"token_type":"Bearer"}' \
+  --project-ref lhcouyccseuyczcmatoa
+```
+
+**Alternative browser (si rate limit persiste) :** sur connect.garmin.com connecté, DevTools Console :
+```javascript
+JSON.stringify(Object.fromEntries(Object.keys(localStorage).filter(k => k.match(/token|auth|oauth|jwt|garmin/i)).map(k => [k, localStorage.getItem(k)])))
+```
+
+### Architecture finale Garmin sync
+```
+Mobile PWA → bouton "Sync Garmin" dans Intégrations
+  → supabase.functions.invoke('garmin-sync', { body: { days: 1 } })
+  → Edge Function Supabase (Deno, 81KB, fetch natif)
+  → API connectapi.garmin.com (Bearer token)
+  → Supabase : UPDATE profiles.tdee_mesure + UPSERT activities + UPSERT weights
+  → App relit via sync login → données à jour
+
+Cron automatique : 0 5 * * * (7h Paris) — pg_cron Supabase
+Refresh token : automatique si access_token expiré
+Re-auth manuelle : max 1x/60 jours (garmin_auth.py)
+```
+
+### Migration SQL à appliquer (si pas encore fait)
+```sql
+-- Dans Supabase SQL Editor
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS garmin_activity_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_garmin_id ON activities(user_id, garmin_activity_id) WHERE garmin_activity_id IS NOT NULL;
+```
+
+### Notes techniques
+- `npm:garmin-connect` incompatible Deno → remplacé par fetch natif
+- `garth` 0.8.0 dépréciée mais fonctionnelle pour génération one-shot des tokens
+- `GARMIN_EMAIL`/`GARMIN_PASSWORD` dans Supabase secrets inutiles désormais (peuvent être supprimés après génération tokens)
+- Tokens valides ~60 jours, refresh_token relance sans re-auth
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
