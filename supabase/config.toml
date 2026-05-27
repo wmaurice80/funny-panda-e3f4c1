@@ -1,0 +1,4 @@
+project_id = "lhcouyccseuyczcmatoa"
+
+[functions.garmin-sync]
+verify_jwt = false

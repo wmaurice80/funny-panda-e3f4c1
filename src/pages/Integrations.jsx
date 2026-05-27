@@ -17,6 +17,7 @@ import {
 } from '../lib/googleFit';
 import { getActivitiesForDate } from '../db';
 import { syncedAddActivity, syncedAddWeight } from '../lib/syncManager';
+import { supabase } from '../lib/supabase';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -61,6 +62,9 @@ export default function Integrations() {
   const [syncError, setSyncError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
   const [debugging, setDebugging] = useState(false);
+  const [garminSyncing, setGarminSyncing] = useState(false)
+  const [garminResult, setGarminResult] = useState(null) // { summary } | null
+  const [garminError, setGarminError] = useState(null)
 
   // Vérification initiale de la connexion
   const checkConnection = useCallback(async () => {
@@ -159,6 +163,24 @@ export default function Integrations() {
       setSyncing(false);
     }
   };
+
+  const handleGarminSync = async () => {
+    setGarminSyncing(true)
+    setGarminResult(null)
+    setGarminError(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('garmin-sync', {
+        body: { days: 1 }
+      })
+      if (error) throw error
+      if (!data.success) throw new Error(data.error ?? 'Erreur inconnue')
+      setGarminResult(data.summary)
+    } catch (err) {
+      setGarminError(err?.message ?? 'Erreur de synchronisation Garmin')
+    } finally {
+      setGarminSyncing(false)
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0f0f1a] pb-16">
@@ -365,14 +387,71 @@ export default function Integrations() {
               <span className="text-2xl">⌚</span>
               <div>
                 <p className="text-sm font-bold text-white">Garmin Connect</p>
-                <p className="text-xs text-gray-500">Activités &amp; données santé</p>
+                <p className="text-xs text-gray-500">TDEE · Activités · Poids</p>
               </div>
             </div>
-            <PendingBadge />
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
+                             bg-emerald-900/30 border border-emerald-700/40 text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Actif
+            </span>
           </div>
-          <p className="text-sm text-gray-400 leading-relaxed">
-            Demande d&apos;accès soumise — disponible après approbation Garmin (2-4 semaines).
+
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Synchronise ton TDEE mesuré, tes séances et ton poids directement depuis Garmin Connect.
+            La sync automatique tourne chaque matin à 7h.
           </p>
+
+          {/* Bouton Sync */}
+          <button
+            onClick={handleGarminSync}
+            disabled={garminSyncing}
+            className="w-full py-3 rounded-xl
+                       bg-gradient-to-r from-teal-600 to-cyan-600
+                       text-white font-semibold text-sm
+                       flex items-center justify-center gap-2
+                       hover:opacity-90 active:scale-95 transition-all duration-200
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {garminSyncing ? (
+              <>
+                <Spinner />
+                Synchronisation Garmin…
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                Sync Garmin maintenant
+              </>
+            )}
+          </button>
+
+          {/* Résultat */}
+          {garminResult && (
+            <div className="mt-3 rounded-xl px-4 py-3 bg-emerald-900/20 border border-emerald-700/30
+                            flex flex-col gap-1.5">
+              <p className="text-sm font-bold text-emerald-400">Sync Garmin terminée ✓</p>
+              <p className="text-xs text-gray-400">
+                TDEE mis à jour : {garminResult.tdeeOk ? '✓' : '—'}
+              </p>
+              <p className="text-xs text-gray-400">
+                Activités importées : {garminResult.activitesOk}
+                {garminResult.activitesErr > 0 && (
+                  <span className="text-orange-400"> ({garminResult.activitesErr} erreur{garminResult.activitesErr > 1 ? 's' : ''})</span>
+                )}
+              </p>
+              <p className="text-xs text-gray-400">
+                Poids : {garminResult.poidsOk ? '✓ synchronisé' : '— aucune pesée'}
+              </p>
+            </div>
+          )}
+
+          {/* Erreur */}
+          {garminError && (
+            <div className="mt-3 rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
+              <p className="text-xs text-red-400">{garminError}</p>
+            </div>
+          )}
         </div>
 
       </div>
