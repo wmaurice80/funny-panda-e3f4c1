@@ -59,6 +59,19 @@ const tabs = [
       </svg>
     ),
   },
+  {
+    to: '/aide',
+    label: 'Aide',
+    icon: (active) => (
+      <svg viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'}
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className="w-6 h-6">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke={active ? 'white' : 'currentColor'} />
+        <line x1="12" y1="17" x2="12.01" y2="17" stroke={active ? 'white' : 'currentColor'} strokeWidth="2.5" />
+      </svg>
+    ),
+  },
 ];
 
 export default function BottomNav() {
@@ -73,7 +86,7 @@ export default function BottomNav() {
           to={to}
           end={to === '/'}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors duration-200
+            `flex flex-col items-center gap-1 py-2 px-2 rounded-xl transition-colors duration-200
              ${isActive ? 'text-violet-400' : 'text-gray-500 hover:text-gray-300'}`
           }
         >

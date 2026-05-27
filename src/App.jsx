@@ -14,6 +14,7 @@ import Auth from './pages/Auth';
 import Migration from './pages/Migration';
 import GoogleFitCallback from './pages/GoogleFitCallback';
 import Integrations from './pages/Integrations';
+import Aide from './pages/Aide';
 
 const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations'];
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/migration" element={<Migration />} />
         <Route path="/auth/google/callback" element={<GoogleFitCallback />} />
         <Route path="/integrations" element={<Integrations />} />
+        <Route path="/aide" element={<Aide />} />
       </Routes>
       {showNav && <BottomNav />}
     </>
