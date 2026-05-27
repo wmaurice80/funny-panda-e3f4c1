@@ -399,6 +399,53 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_garmin_id ON activities(user_id
 
 ---
 
+## Résumé de session — 27 mai 2026 (session 2)
+
+### Fonctionnalité ajoutée
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `src/pages/Stats.jsx` | Nouvelle ligne "📉 Déficit réel vs TDEE" dans le navigateur journalier ← → — affichée sous les 3 colonnes (Ingérées / Cible / Bilan), au-dessus des Protéines |
+
+### Logique
+```
+Déficit réel = burned - ingested
+  Vert  (-XXX kcal) : burned > ingested → déficit actif, perte de poids
+  Rouge (+XXX kcal) : burned < ingested → surplus, prise de poids
+Condition d'affichage : d.burned > 0 (jour avec données TDEE)
+```
+
+### Clarification technique
+- **Tendances hebdomadaires** (`WeeklyTrends`) : utilisent la **dépense réelle** (`burned = tdee + sport`), pas la cible — confirmé dans `utils/stats.js` ligne 46
+- **Déficit réel déjà présent dans Dashboard** (`BilanCard`) mais conditionnel à `caloriesIngerees > 0`
+
+### Git
+- Commit `a007c85` pushé sur `main` — Netlify auto-déployé
+
+---
+
+## Résumé de session — 27 mai 2026 (session 3)
+
+### Fonctionnalité ajoutée
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `src/pages/Aide.jsx` (nouveau) | Page glossaire interactive — 15 termes nutritionnels dépliables avec définition, formule et exemple concret |
+| 2 | `src/App.jsx` | Import + route `/aide` ajoutée |
+| 3 | `src/components/BottomNav.jsx` | 5ème onglet "Aide" avec icône point d'interrogation — padding réduit px-4→px-2 pour tenir sur mobile |
+
+### Termes couverts dans le glossaire
+BMR, TDEE, TDEE du jour, Cible, Déficit calorique, Surplus calorique, Bilan net, Déficit réel, LBM, % MG, Objectif protéines, Seuil anti-catabolisme, Macronutriments, kcal, Barre tricolore, Mifflin-St Jeor
+
+### UX
+- Cartes dépliables (accordéon) — une seule ouverte à la fois
+- Barre de recherche filtrante par terme ou label
+- Formules en `font-mono` sur fond sombre
+- Exemples concrets basés sur le profil wmaurice (119 kg, LBM 74 kg, TDEE 2 750)
+
+### Git
+- Commit `3752e59` pushé sur `main` — Netlify auto-déployé
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
