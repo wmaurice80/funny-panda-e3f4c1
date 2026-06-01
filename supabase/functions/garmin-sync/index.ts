@@ -18,11 +18,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 }
 
-function generateDates(days: number): string[] {
+// offset=0 → aujourd'hui inclus, offset=1 → hier inclus (pour cron post-minuit)
+function generateDates(days: number, offset = 0): string[] {
   const dates: string[] = []
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date()
-    d.setDate(d.getDate() - i)
+    d.setDate(d.getDate() - i - offset)
     dates.push(d.toISOString().slice(0, 10))
   }
   return dates
@@ -58,16 +59,20 @@ serve(async (req) => {
     }
 
     let days = 1
+    let offset = 0
     try {
       const body = await req.json()
       if (typeof body?.days === "number" && body.days > 0) {
         days = Math.min(body.days, 30) // sécurité : max 30 jours
       }
+      if (typeof body?.offset === "number" && body.offset >= 0) {
+        offset = Math.min(body.offset, 30)
+      }
     } catch {
       // body absent ou invalide → on garde le défaut
     }
 
-    const dates = generateDates(days)
+    const dates = generateDates(days, offset)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     const reports: SyncReport[] = []
