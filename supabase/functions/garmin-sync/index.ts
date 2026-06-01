@@ -90,10 +90,18 @@ serve(async (req) => {
       const summary = await fetchDailySummary(date)
       if (summary) {
         try {
-          const { error } = await supabase
-            .from("profiles")
-            .update({ tdee_mesure: summary.tdeeKcal })
-            .eq("id", CALSNAP_USER_ID)
+          const { error } = await supabase.from("garmin_daily").upsert(
+            {
+              user_id: CALSNAP_USER_ID,
+              date: summary.date,
+              total_kcal: summary.tdeeKcal,
+              active_kcal: summary.activeKcal,
+              bmr_kcal: summary.bmrKcal,
+              steps: summary.steps ?? 0,
+              synced_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,date" }
+          )
           if (!error) report.tdeeOk = true
         } catch {
           // erreur silencieuse, tdeeOk reste false
