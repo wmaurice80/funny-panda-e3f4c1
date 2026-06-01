@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
-import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights } from '../db';
+import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights, getAllGarminDaily } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE, ACTIVITY_LABELS } from '../utils/bmr';
 import { isConnected, hasRefreshToken, fetchAllDayData } from '../lib/googleFit';
 import { syncedDeleteActivity } from '../lib/syncManager';
@@ -372,15 +372,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [gfitData, setGfitData] = useState(null);
   const [gfitLoading, setGfitLoading] = useState(false);
+  const [lastGarminEntry, setLastGarminEntry] = useState(null);
 
   const loadData = useCallback(async () => {
     const today = todayISO();
-    const [p, meals, acts, lw, allWeights] = await Promise.all([
+    const [p, meals, acts, lw, allWeights, garminRows] = await Promise.all([
       getProfile(),
       getMealsForDate(today),
       getActivitiesForDate(today),
       getLatestWeight(),
       getWeights(),
+      getAllGarminDaily(),
     ]);
 
     if (!p) {
@@ -394,6 +396,12 @@ export default function Dashboard() {
     setTotalSport(acts.reduce((sum, a) => sum + (a.caloriesBrulees ?? 0), 0));
     setTotalProteinesJour(meals.reduce((sum, m) => sum + (m.totalProteines ?? 0), 0));
     setLatestWeight(lw ?? null);
+
+    // Dernière entrée Garmin (triée par date desc)
+    if (garminRows?.length) {
+      const sorted = [...garminRows].sort((a, b) => b.date.localeCompare(a.date));
+      setLastGarminEntry(sorted[0]);
+    }
 
     // Calcul évolution 30 jours
     const thirtyDaysAgo = new Date();
@@ -578,7 +586,40 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* 4 — Suite */}
+        {/* 4 — Garmin dernière mesure (informatif) */}
+        {lastGarminEntry && (
+          <div className="bg-gray-800/60 rounded-2xl p-4 border border-violet-800/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⌚</span>
+                <span className="text-sm font-semibold text-violet-300">Garmin mesuré</span>
+              </div>
+              <span className="text-xs text-gray-500">
+                {new Date(lastGarminEntry.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+            <div className="flex items-end gap-1 mb-3">
+              <span className="text-2xl font-bold text-white">{lastGarminEntry.total_kcal.toLocaleString('fr-FR')}</span>
+              <span className="text-sm text-gray-400 mb-0.5">kcal total</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-gray-700/50 rounded-xl p-2">
+                <div className="text-xs text-gray-400 mb-0.5">BMR</div>
+                <div className="text-sm font-semibold text-orange-400">{lastGarminEntry.bmr_kcal.toLocaleString('fr-FR')}</div>
+              </div>
+              <div className="bg-gray-700/50 rounded-xl p-2">
+                <div className="text-xs text-gray-400 mb-0.5">Actif</div>
+                <div className="text-sm font-semibold text-green-400">{lastGarminEntry.active_kcal.toLocaleString('fr-FR')}</div>
+              </div>
+              <div className="bg-gray-700/50 rounded-xl p-2">
+                <div className="text-xs text-gray-400 mb-0.5">Pas</div>
+                <div className="text-sm font-semibold text-blue-400">{(lastGarminEntry.steps ?? 0).toLocaleString('fr-FR')}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5 — Suite */}
         {(isConnected() || hasRefreshToken()) && (
           <GoogleFitCard
             data={gfitData}
