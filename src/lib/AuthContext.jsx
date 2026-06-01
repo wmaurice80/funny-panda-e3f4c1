@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { pullProfile, pullAllMeals, pullAllActivities, pullAllWeights } from './supabaseDb'
 import { saveProfile, addMeal, addActivity, addWeight, clearAllLocalData } from '../db'
+import { syncGarminDaily } from './syncManager'
 
 const LAST_USER_KEY = 'calsnap_last_user_id'
 
@@ -28,6 +29,12 @@ async function syncFromSupabase() {
     const remoteWeights = await pullAllWeights()
     for (const weight of remoteWeights) {
       await addWeight(weight).catch(() => {})
+    }
+
+    // Garmin daily (TDEE réel par jour)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user?.id) {
+      await syncGarminDaily(session.user.id).catch(() => {})
     }
   } catch (e) {
     console.warn('[syncFromSupabase]', e.message)
