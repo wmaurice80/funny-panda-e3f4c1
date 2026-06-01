@@ -1,7 +1,7 @@
 // src/pages/Stats.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProfile, getWeights } from '../db';
+import { getProfile, getWeights, getAllGarminDaily } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE } from '../utils/bmr';
 import { getMonthlyData, getMonthBilan, getWeeklyTrends } from '../utils/stats';
 import MonthlyChart from '../components/MonthlyChart';
@@ -60,13 +60,17 @@ export default function Stats() {
   const [bilan, setBilan] = useState(null);
   const [trends, setTrends] = useState([]);
   const [weightChartData, setWeightChartData] = useState([]);
+  const [garminDailyMap, setGarminDailyMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [noProfile, setNoProfile] = useState(false);
 
-  // Charge le profil, calcule le TDEE et la cible
+  // Charge le profil, calcule le TDEE et la cible + charge les données Garmin
   useEffect(() => {
     (async () => {
-      const profile = await getProfile();
+      const [profile, garminRows] = await Promise.all([
+        getProfile(),
+        getAllGarminDaily(),
+      ]);
       if (!profile) {
         setNoProfile(true);
         setLoading(false);
@@ -79,21 +83,27 @@ export default function Stats() {
       setCible(computedCible);
       setObjectif(profile.objectif ?? 'maintien');
       setProteinGoal(calculateProteinGoal(profile));
+      // Construire le map { 'YYYY-MM-DD': entry }
+      const gMap = {};
+      for (const entry of garminRows) {
+        gMap[entry.date] = entry;
+      }
+      setGarminDailyMap(gMap);
     })();
   }, []);
 
   // Réinitialise le navigateur journalier au jour le plus récent quand le mois change
   useEffect(() => { setSelectedDayIdx(0); }, [year, month]);
 
-  // Charge les données statistiques dès que cible / mois / année changent
+  // Charge les données statistiques dès que cible / mois / année / garminDailyMap changent
   const loadStats = useCallback(async () => {
     if (cible === null) return;
     setLoading(true);
     const prefix = `${String(year)}-${String(month).padStart(2, '0')}`;
     const [data, bil, trend, allWeights] = await Promise.all([
-      getMonthlyData(year, month, tdee),
-      getMonthBilan(year, month, tdee, cible),
-      getWeeklyTrends(year, month, tdee),
+      getMonthlyData(year, month, tdee, garminDailyMap),
+      getMonthBilan(year, month, tdee, cible, garminDailyMap),
+      getWeeklyTrends(year, month, tdee, garminDailyMap),
       getWeights(),
     ]);
     setMonthlyData(data);
@@ -106,7 +116,7 @@ export default function Stats() {
         .map(w => ({ date: w.date, poids: w.poids }))
     );
     setLoading(false);
-  }, [year, month, tdee, cible]);
+  }, [year, month, tdee, cible, garminDailyMap]);
 
   useEffect(() => {
     loadStats();
@@ -260,6 +270,7 @@ export default function Stats() {
 
             const idx = Math.min(selectedDayIdx, jours.length - 1);
             const d = jours[idx];
+            const garminEntry = garminDailyMap?.[d.date] ?? null;
             const delta = tdee > 0 && cible > 0 ? tdee - cible : 0;
             const cibleJour = Math.max(0, d.burned - delta);
             const bilanNet = d.ingested - cibleJour;
@@ -356,6 +367,13 @@ export default function Stats() {
                       <span className="text-xs text-gray-600">/ {proteinGoal} g</span>
                       {d.proteines >= proteinGoal && <span className="text-xs text-cyan-400">✓</span>}
                     </div>
+                  </div>
+                )}
+
+                {/* Données Garmin mesurées */}
+                {garminEntry && (
+                  <div className="text-xs text-violet-400 mt-1">
+                    🔥 Garmin mesuré : {garminEntry.total_kcal} kcal
                   </div>
                 )}
               </div>

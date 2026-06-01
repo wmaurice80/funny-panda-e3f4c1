@@ -401,3 +401,23 @@ export async function pullAllWeights() {
     return []
   }
 }
+
+// ---------------------------------------------------------------------------
+// GARMIN DAILY
+// ---------------------------------------------------------------------------
+
+/**
+ * Récupère les 90 derniers jours de données Garmin pour l'utilisateur connecté.
+ * @param {string} userId - L'identifiant Supabase de l'utilisateur
+ * @returns {Array} Tableau de { date, total_kcal, active_kcal, bmr_kcal, steps }, ou [] en cas d'erreur
+ */
+export async function pullGarminDaily(userId) {
+  const { data, error } = await supabase
+    .from('garmin_daily')
+    .select('date, total_kcal, active_kcal, bmr_kcal, steps')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(90)
+  if (error) throw error
+  return data ?? []
+}

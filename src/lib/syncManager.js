@@ -9,7 +9,7 @@
 // Le mode offline reste entièrement fonctionnel : les erreurs Supabase sont
 // silencieusement ignorées (.catch(() => {})) et n'empêchent pas l'écriture locale.
 
-import { addMeal, deleteMeal, addActivity, deleteActivity, addWeight, deleteWeight, saveProfile } from '../db';
+import { addMeal, deleteMeal, addActivity, deleteActivity, addWeight, deleteWeight, saveProfile, putGarminDaily } from '../db';
 import {
   pushMeal,
   deleteMealRemote,
@@ -18,6 +18,7 @@ import {
   pushWeight,
   deleteWeightRemote,
   pushProfile,
+  pullGarminDaily,
 } from './supabaseDb';
 
 // ── Profil ────────────────────────────────────────────────────────────────────
@@ -65,4 +66,22 @@ export async function syncedAddWeight(weight) {
 export async function syncedDeleteWeight(id) {
   await deleteWeight(id);
   deleteWeightRemote(id).catch(() => {}); // par date
+}
+
+// ── Garmin Daily ──────────────────────────────────────────────────────────────
+
+/**
+ * Télécharge les données garmin_daily depuis Supabase et les stocke dans IndexedDB.
+ * À appeler au login (fire-and-forget possible, mais await conseillé pour que les stats
+ * soient disponibles dès le premier rendu de la page Stats).
+ *
+ * @param {string} userId - L'identifiant Supabase de l'utilisateur
+ */
+export async function syncGarminDaily(userId) {
+  try {
+    const rows = await pullGarminDaily(userId);
+    await Promise.all(rows.map(row => putGarminDaily(row)));
+  } catch (err) {
+    console.warn('[syncManager] syncGarminDaily', err.message);
+  }
 }

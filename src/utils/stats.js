@@ -20,14 +20,18 @@ function daysInMonth(year, month) {
 /**
  * Retourne un tableau d'entrées pour chaque jour du mois donné.
  * Chaque entrée : { day, date, ingested, proteines, burned, isSportDay }
- * burned = tdeeSport si activités ce jour, sinon tdeeMesure (sport géré via toggle)
+ *
+ * Règle burned :
+ *  - Jour en cours : tdee + sport (TDEE mesuré fixe + activités du jour)
+ *  - Jours passés  : garminDailyMap[date].total_kcal si disponible, sinon tdee + sport
+ *  - Jours futurs vides : 0
  *
  * @param {number} year
- * @param {number} month     - 1..12
- * @param {number} tdeeMesure - TDEE jours de repos
- * @param {number} tdeeSport  - TDEE jours de sport (0 = non renseigné)
+ * @param {number} month          - 1..12
+ * @param {number} tdee           - TDEE de référence (tdeeMesure ou calculé)
+ * @param {Object} [garminDailyMap] - Map { 'YYYY-MM-DD': { total_kcal, active_kcal, ... } }
  */
-export async function getMonthlyData(year, month, tdee) {
+export async function getMonthlyData(year, month, tdee, garminDailyMap = {}) {
   const totalDays = daysInMonth(year, month);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -43,8 +47,13 @@ export async function getMonthlyData(year, month, tdee) {
       const sport = acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0);
       const isSportDay = acts.length > 0;
       const isFuture = date > today;
-      const burned = (isFuture && ingested === 0) ? 0 : tdee + sport;
-      return { day, date, ingested, proteines, burned, isSportDay };
+      const garminEntry = garminDailyMap?.[date];
+      const burned = (isFuture && ingested === 0)
+        ? 0
+        : (date < today && garminEntry)
+          ? garminEntry.total_kcal
+          : tdee + sport;
+      return { day, date, ingested, proteines, burned, isSportDay, garminEntry: garminEntry ?? null };
     });
   });
 
@@ -56,15 +65,14 @@ export async function getMonthlyData(year, month, tdee) {
  * { totalIngested, totalBurned, netBalance, fatKg }
  *
  * @param {number} year
- * @param {number} month     - 1..12
- * @param {number} tdeeMesure
- * @param {number} tdeeSport
- * @param {number} [cible]   - cible repos (si absent, utilise tdeeMesure)
- * @param {number} [cibleSport] - cible sport (si absent, utilise tdeeSport)
+ * @param {number} month        - 1..12
+ * @param {number} tdee
+ * @param {number} [cible]      - cible repos (si absent, utilise tdee)
+ * @param {Object} [garminDailyMap] - Map { 'YYYY-MM-DD': { total_kcal, ... } }
  */
-export async function getMonthBilan(year, month, tdee, cible) {
+export async function getMonthBilan(year, month, tdee, cible, garminDailyMap = {}) {
   const cibleEffective = cible ?? tdee;
-  const data = await getMonthlyData(year, month, tdee);
+  const data = await getMonthlyData(year, month, tdee, garminDailyMap);
   const today = new Date().toISOString().slice(0, 10);
 
   const pastDays = data.filter(d => d.date <= today && d.ingested > 0);
@@ -88,11 +96,12 @@ export async function getMonthBilan(year, month, tdee, cible) {
  * [{ week, label, avgIngested, avgBurned, trend: 'surplus'|'deficit' }, ...]
  *
  * @param {number} year
- * @param {number} month  - 1..12
+ * @param {number} month        - 1..12
  * @param {number} tdee
+ * @param {Object} [garminDailyMap] - Map { 'YYYY-MM-DD': { total_kcal, ... } }
  */
-export async function getWeeklyTrends(year, month, tdee) {
-  const data = await getMonthlyData(year, month, tdee);
+export async function getWeeklyTrends(year, month, tdee, garminDailyMap = {}) {
+  const data = await getMonthlyData(year, month, tdee, garminDailyMap);
   const today = new Date().toISOString().slice(0, 10);
 
   // Découper les jours en semaines (S1 = jours 1-7, S2 = 8-14, S3 = 15-21, S4 = 22+)

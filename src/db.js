@@ -6,7 +6,8 @@ const DB_NAME = 'calsnap-db';
 // Version 3 : ajout de l'index 'date' sur le store activities (pour getActivitiesForDate)
 // Version 4 : ajout du champ optionnel 'categorie' sur les repas (pas de changement de structure IDB)
 // Version 5 : ajout du store 'weights' pour le suivi du poids
-const DB_VERSION = 5;
+// Version 6 : ajout du store 'garminDaily' pour les données Garmin journalières
+const DB_VERSION = 6;
 
 /** Ouvre (ou crée) la base IndexedDB */
 function getDB() {
@@ -49,6 +50,13 @@ function getDB() {
           weightsStore.createIndex('date', 'date', { unique: true });
         }
       }
+
+      // Migration v5 → v6 : ajout du store 'garminDaily' pour les données Garmin journalières.
+      if (oldVersion < 6) {
+        if (!db.objectStoreNames.contains('garminDaily')) {
+          db.createObjectStore('garminDaily', { keyPath: 'date' });
+        }
+      }
     },
   });
 }
@@ -76,12 +84,13 @@ export async function deleteProfile() {
 /** Vide tous les stores — à appeler au logout ou lors d'un changement d'utilisateur */
 export async function clearAllLocalData() {
   const db = await getDB();
-  const tx = db.transaction(['profile', 'meals', 'activities', 'weights'], 'readwrite');
+  const tx = db.transaction(['profile', 'meals', 'activities', 'weights', 'garminDaily'], 'readwrite');
   await Promise.all([
     tx.objectStore('profile').clear(),
     tx.objectStore('meals').clear(),
     tx.objectStore('activities').clear(),
     tx.objectStore('weights').clear(),
+    tx.objectStore('garminDaily').clear(),
   ]);
   await tx.done;
 }
@@ -233,4 +242,22 @@ export async function deleteWeight(id) {
 export async function getLatestWeight() {
   const all = await getWeights();
   return all.length > 0 ? all[all.length - 1] : undefined;
+}
+
+// ─── GARMIN DAILY ────────────────────────────────────────────────────────────
+
+/**
+ * Upsert une entrée Garmin journalière (keyPath = date).
+ * { date: 'YYYY-MM-DD', total_kcal, active_kcal, bmr_kcal, steps }
+ */
+export async function putGarminDaily(entry) {
+  const db = await getDB();
+  return db.put('garminDaily', entry);
+}
+
+/** Retourne toutes les entrées Garmin, triées par date ASC */
+export async function getAllGarminDaily() {
+  const db = await getDB();
+  const all = await db.getAll('garminDaily');
+  return all.sort((a, b) => a.date.localeCompare(b.date));
 }
