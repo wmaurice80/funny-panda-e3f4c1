@@ -177,8 +177,11 @@ export default function Integrations() {
       if (error) throw error
       if (!data.success) throw new Error(data.error ?? 'Erreur inconnue')
       setGarminResult(data.summary)
-      // Mettre à jour IndexedDB local immédiatement après le sync
-      if (user?.id) await syncGarminDaily(user.id).catch(() => {})
+      // Mettre à jour IndexedDB local puis notifier le Dashboard
+      if (user?.id) {
+        await syncGarminDaily(user.id).catch(() => {})
+        window.dispatchEvent(new CustomEvent('garmin-synced'))
+      }
     } catch (err) {
       setGarminError(err?.message ?? 'Erreur de synchronisation Garmin')
     } finally {

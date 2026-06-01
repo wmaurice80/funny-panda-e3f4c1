@@ -475,6 +475,19 @@ export default function Dashboard() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
+  // Rafraîchir l'encart Garmin après un sync manuel depuis Intégrations
+  useEffect(() => {
+    const onGarminSynced = async () => {
+      const garminRows = await getAllGarminDaily();
+      if (garminRows?.length) {
+        const sorted = [...garminRows].sort((a, b) => b.date.localeCompare(a.date));
+        setLastGarminEntry(sorted[0]);
+      }
+    };
+    window.addEventListener('garmin-synced', onGarminSynced);
+    return () => window.removeEventListener('garmin-synced', onGarminSynced);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0f0f1a]">
