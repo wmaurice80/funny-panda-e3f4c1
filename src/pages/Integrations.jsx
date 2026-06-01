@@ -16,8 +16,9 @@ import {
   fetchDebugInfo,
 } from '../lib/googleFit';
 import { getActivitiesForDate } from '../db';
-import { syncedAddActivity, syncedAddWeight } from '../lib/syncManager';
+import { syncedAddActivity, syncedAddWeight, syncGarminDaily } from '../lib/syncManager';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthContext';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -55,6 +56,7 @@ function Spinner() {
 
 export default function Integrations() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [connected, setConnected] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -175,6 +177,8 @@ export default function Integrations() {
       if (error) throw error
       if (!data.success) throw new Error(data.error ?? 'Erreur inconnue')
       setGarminResult(data.summary)
+      // Mettre à jour IndexedDB local immédiatement après le sync
+      if (user?.id) await syncGarminDaily(user.id).catch(() => {})
     } catch (err) {
       setGarminError(err?.message ?? 'Erreur de synchronisation Garmin')
     } finally {
