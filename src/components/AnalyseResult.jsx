@@ -97,7 +97,7 @@ function AlimentRow({ aliment, onChange, onDelete }) {
             type="number"
             min="0"
             value={aliment.calories}
-            onChange={e => onChange({ ...aliment, calories: Number(e.target.value) })}
+            onChange={e => { const v = e.target.valueAsNumber; if (!isNaN(v)) onChange({ ...aliment, calories: v }); }}
             className="w-16 text-right bg-transparent text-violet-300 font-bold text-sm
                        border-b border-violet-600/50 focus:outline-none focus:border-violet-400"
           />
@@ -109,7 +109,7 @@ function AlimentRow({ aliment, onChange, onDelete }) {
             min="0"
             step="0.5"
             value={aliment.proteines ?? 0}
-            onChange={e => onChange({ ...aliment, proteines: Number(e.target.value) })}
+            onChange={e => { const v = e.target.valueAsNumber; if (!isNaN(v)) onChange({ ...aliment, proteines: v }); }}
             className="w-12 text-right bg-transparent text-cyan-400 font-bold text-sm
                        border-b border-cyan-600/50 focus:outline-none focus:border-cyan-400"
           />
