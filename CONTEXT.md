@@ -446,6 +446,70 @@ BMR, TDEE, TDEE du jour, Cible, Déficit calorique, Surplus calorique, Bilan net
 
 ---
 
+## Résumé de session — 1er juin 2026
+
+### Objectifs
+- Corriger la saisie décimale des protéines
+- Faire fonctionner le sync Garmin (tokens + Edge Function)
+- Implémenter la table `garmin_daily` pour stocker le TDEE réel par jour
+
+### Corrections & fonctionnalités livrées
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `src/components/AnalyseResult.jsx` | Fix saisie décimale : `Number()` → `valueAsNumber` + NaN guard — évite reset à 0 quand user tape "12." |
+| 2 | `src/components/AnalyseResult.jsx` | Fix enregistrement bloqué : `step="0.5"` → `step="any"` + `inputMode="decimal"` — évite état invalide mobile sur valeurs IA comme 12.3g |
+| 3 | `src/pages/Aliments.jsx` | Fix saisie manuelle protéines : ajout `step="0.1"` + `inputMode="decimal"` sur le champ protéines |
+| 4 | `garmin_sync/garmin_auth.py` | Migration `garth` (déprécié) → `garminconnect 0.3.3` — 5 stratégies d'auth, extraction `di_token`/`di_refresh_token`/`di_client_id`/`display_name` |
+| 5 | `supabase/functions/garmin-sync/garmin.ts` | Fix endpoint refresh → `diauth.garmin.com/di-oauth2-service/oauth/token` + Basic auth `di_client_id` ; `display_name` lu depuis GARMIN_TOKENS (plus d'appel API profile) |
+| 6 | `supabase/functions/garmin-sync/index.ts` | `garmin_daily` upsert au lieu de `profiles.tdee_mesure` ; paramètre `offset` ajouté à `generateDates` |
+| 7 | `supabase/functions/garmin-sync/cron.sql` | Cron mis à jour : `5 22 * * *` (UTC) = 00h05 Paris — sync avec `offset:1` (hier = journée complète à 23h59) |
+| 8 | `garmin_sync/migrations/002_garmin_daily.sql` | Nouvelle table `garmin_daily(user_id, date, total_kcal, active_kcal, bmr_kcal, steps, synced_at)` |
+| 9 | `src/lib/supabaseDb.js` | Ajout `pullGarminDaily(userId)` |
+| 10 | `src/db.js` | DB_VERSION 5→6, store `garminDaily` + `putGarminDaily` + `getAllGarminDaily` |
+| 11 | `src/lib/syncManager.js` | Ajout `syncGarminDaily(userId)` |
+| 12 | `src/lib/AuthContext.jsx` | Branchement `syncGarminDaily` au login/session restore |
+| 13 | `src/utils/stats.js` | Paramètre `garminDailyMap` — jours passés utilisent `garmin_daily.total_kcal` comme `burned` |
+| 14 | `src/pages/Stats.jsx` | Chargement `garminDailyMap` depuis IndexedDB + badge `🔥 Garmin mesuré : X kcal` dans navigateur journalier |
+| 15 | `src/pages/Dashboard.jsx` | Encart **Garmin mesuré** (dernière sync) — total kcal + décomposition BMR / Actif / Pas |
+
+### Architecture TDEE — règle définitive
+```
+Jour en cours (live) :
+  Cible = profiles.tdee_mesure (2 800 fixe) + sport manuel du jour − déficit
+  → profiles.tdee_mesure jamais touché par les syncs
+
+Jours passés (stats/historique) :
+  Burned = garmin_daily.total_kcal (mesuré complet à 23h59)
+  → cron 00h05 Paris avec offset=1 écrit la journée complète de la veille
+```
+
+### Secrets Supabase configurés
+- `CALSNAP_USER_ID` = `12726d58-685b-43fc-b739-55ec4e52f9cb` ✅
+- `GARMIN_TOKENS` (inclut `display_name`, `di_client_id`, `expires_at`) ✅
+- `GARMIN_EMAIL` / `GARMIN_PASSWORD` (inutiles désormais, peuvent être supprimés)
+
+### SQL manuel appliqué dans Supabase
+```sql
+-- Migration 002
+CREATE TABLE garmin_daily (...) + RLS + GRANT authenticated
+-- Permissions service_role
+GRANT SELECT, INSERT, UPDATE ON public.garmin_daily TO service_role;
+-- Cron pg_cron
+SELECT cron.schedule('garmin-daily-sync', '5 22 * * *', $$...$$);
+```
+
+### Blocages résolus
+- **garth déprécié** → Cloudflare Garmin bloquait l'User-Agent → migré vers `garminconnect 0.3.3`
+- **CALSNAP_USER_ID placeholder** → FK constraint silencieuse → UUID réel configuré
+- **`service_role` sans GRANT** → `permission denied for table garmin_daily` → GRANT appliqué
+- **`display_name` introuvable** → endpoint `/personal-information` structure différente avec DI tokens → stocké dans GARMIN_TOKENS lors de `garmin_auth.py`
+
+### Git
+- Commits `491c032`, `fa532dc`, `870a213`, `90f592e`, `ec783bb`, `8ee7582`, `756e9b8`, `ba3f616` pushés sur `main`
+- Dernière sync Garmin peuplée sur 14 jours (18–31 mai 2026)
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
