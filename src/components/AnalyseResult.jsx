@@ -96,6 +96,8 @@ function AlimentRow({ aliment, onChange, onDelete }) {
           <input
             type="number"
             min="0"
+            step="any"
+            inputMode="decimal"
             value={aliment.calories}
             onChange={e => { const v = e.target.valueAsNumber; if (!isNaN(v)) onChange({ ...aliment, calories: v }); }}
             className="w-16 text-right bg-transparent text-violet-300 font-bold text-sm
@@ -107,7 +109,8 @@ function AlimentRow({ aliment, onChange, onDelete }) {
           <input
             type="number"
             min="0"
-            step="0.5"
+            step="any"
+            inputMode="decimal"
             value={aliment.proteines ?? 0}
             onChange={e => { const v = e.target.valueAsNumber; if (!isNaN(v)) onChange({ ...aliment, proteines: v }); }}
             className="w-12 text-right bg-transparent text-cyan-400 font-bold text-sm
