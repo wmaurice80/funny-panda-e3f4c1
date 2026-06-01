@@ -321,9 +321,11 @@ function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = 
         <input
           type="number"
           min="0"
+          step="0.1"
+          inputMode="decimal"
           value={proteines}
           onChange={e => setProteines(e.target.value)}
-          placeholder="ex. 12  (ou laisse l'IA calculer ↑)"
+          placeholder="ex. 12.5  (ou laisse l'IA calculer ↑)"
           className="bg-[#0f0f1a] border border-cyan-900/40 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500 transition-colors"
         />
       </div>
