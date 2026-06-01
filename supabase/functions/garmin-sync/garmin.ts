@@ -7,6 +7,7 @@ interface GarthTokens {
   refresh_token: string
   expires_at: number // timestamp Unix en secondes
   token_type: string
+  di_client_id?: string
   scope?: string
 }
 
@@ -58,35 +59,46 @@ function isTokenExpired(tokens: GarthTokens): boolean {
 }
 
 async function refreshAccessToken(tokens: GarthTokens): Promise<GarthTokens> {
+  const clientId = tokens.di_client_id || "GARMIN_CONNECT_MOBILE_ANDROID_DI"
+  const basicAuth = btoa(`${clientId}:`)
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: tokens.refresh_token,
+    client_id: clientId,
+  })
+
   const res = await fetch(
-    "https://connectapi.garmin.com/oauth-service/oauth/exchange/user/2.0",
+    "https://diauth.garmin.com/di-oauth2-service/oauth/token",
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${tokens.refresh_token}`,
+        Authorization: `Basic ${basicAuth}`,
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "GCM-iOS-5.7.2.1",
       },
-      body: "grant_type=refresh_token",
+      body: body.toString(),
     },
   )
 
   if (!res.ok) {
-    throw new Error("Refresh token expiré — relancer python sync.py --test-auth")
+    throw new Error("Refresh token expiré — relancer garmin_auth.py")
   }
 
   const data = await res.json() as Record<string, unknown>
   const newAccessToken = data.access_token as string | undefined
   const expiresIn = data.expires_in as number | undefined
 
-  if (!newAccessToken || !expiresIn) {
-    throw new Error("Refresh token expiré — relancer python sync.py --test-auth")
+  if (!newAccessToken) {
+    throw new Error("Refresh token expiré — relancer garmin_auth.py")
   }
 
   return {
     ...tokens,
     access_token: newAccessToken,
-    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+    expires_at: expiresIn
+      ? Math.floor(Date.now() / 1000) + expiresIn
+      : Math.floor(Date.now() / 1000) + 3600,
   }
 }
 
