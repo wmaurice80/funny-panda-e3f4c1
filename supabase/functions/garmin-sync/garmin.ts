@@ -8,6 +8,7 @@ interface GarthTokens {
   expires_at: number // timestamp Unix en secondes
   token_type: string
   di_client_id?: string
+  display_name?: string
   scope?: string
 }
 
@@ -110,6 +111,23 @@ async function getValidToken(): Promise<string> {
   return tokens.access_token
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  try {
+    const payload = token.split(".")[1]
+    const padded = payload + "=".repeat((4 - payload.length % 4) % 4)
+    return JSON.parse(atob(padded))
+  } catch {
+    return {}
+  }
+}
+
+async function getDisplayName(): Promise<string> {
+  const tokens = loadTokens()
+  // display_name stocké lors de l'auth (garmin_auth.py)
+  if (tokens.display_name) return tokens.display_name
+  throw new Error("display_name absent de GARMIN_TOKENS — relancer garmin_auth.py")
+}
+
 // ─── Core fetch helper ────────────────────────────────────────────────────────
 
 async function garminFetch(path: string, accessToken: string): Promise<unknown> {
@@ -136,14 +154,7 @@ async function garminFetch(path: string, accessToken: string): Promise<unknown> 
 export async function fetchDailySummary(date: string): Promise<DailySummary | null> {
   try {
     const accessToken = await getValidToken()
-
-    const profile = await garminFetch(
-      "/userprofile-service/userprofile/personal-information",
-      accessToken,
-    ) as Record<string, unknown>
-
-    const displayName = profile?.userName as string | undefined
-    if (!displayName) return null
+    const displayName = await getDisplayName()
 
     const stats = await garminFetch(
       `/usersummary-service/usersummary/daily/${displayName}?calendarDate=${date}`,
@@ -163,8 +174,7 @@ export async function fetchDailySummary(date: string): Promise<DailySummary | nu
         stats?.restingHeartRate != null ? Number(stats.restingHeartRate) : null,
     }
   } catch (err) {
-    console.error("[fetchDailySummary]", (err as Error).message)
-    return null
+    throw new Error(`fetchDailySummary: ${(err as Error).message}`)
   }
 }
 

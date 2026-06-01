@@ -86,10 +86,10 @@ serve(async (req) => {
         weightOk: false,
       }
 
-      // — Daily summary (TDEE) —
-      const summary = await fetchDailySummary(date)
-      if (summary) {
-        try {
+      // — Daily summary (TDEE → garmin_daily) —
+      try {
+        const summary = await fetchDailySummary(date)
+        if (summary) {
           const { error } = await supabase.from("garmin_daily").upsert(
             {
               user_id: CALSNAP_USER_ID,
@@ -103,9 +103,9 @@ serve(async (req) => {
             { onConflict: "user_id,date" }
           )
           if (!error) report.tdeeOk = true
-        } catch {
-          // erreur silencieuse, tdeeOk reste false
         }
+      } catch {
+        // skip silencieux — pas de données Garmin ce jour
       }
 
       await sleep(1000)

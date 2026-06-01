@@ -68,6 +68,7 @@ def main():
         "expires_at": expires_at,
         "token_type": "Bearer",
         "di_client_id": di_client_id or "",
+        "display_name": api.display_name or "",
     }
 
     print("\nCopiez ce JSON comme secret GARMIN_TOKENS dans Supabase :")
