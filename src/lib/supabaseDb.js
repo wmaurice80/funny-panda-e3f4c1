@@ -403,6 +403,73 @@ export async function pullAllWeights() {
 }
 
 // ---------------------------------------------------------------------------
+// AI USAGE QUOTA
+// ---------------------------------------------------------------------------
+
+/**
+ * Retourne le nombre d'analyses IA utilisées par l'utilisateur pour le mois en cours.
+ * Utilise getUserId() depuis le JWT Supabase — le paramètre userId est ignoré.
+ * @returns {number} Le count du mois en cours (0 si aucune entrée)
+ */
+export async function getAiUsage() {
+  try {
+    const userId = await getUserId()
+    if (!userId) return 0
+    const month = new Date().toISOString().slice(0, 7) // "YYYY-MM"
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('month', month)
+      .maybeSingle()
+    if (error) throw error
+    return data?.count ?? 0
+  } catch (error) {
+    console.warn('[supabaseDb] getAiUsage:', error.message)
+    return 0
+  }
+}
+
+/**
+ * Incrémente de 1 le compteur d'analyses IA pour l'utilisateur et le mois en cours.
+ * Utilise getUserId() depuis le JWT Supabase — le paramètre userId est ignoré.
+ * Utilise un UPSERT (insert ou update si l'entrée existe déjà).
+ * @returns {number|null} Le nouveau count, ou null en cas d'erreur
+ */
+export async function incrementAiUsage() {
+  try {
+    const userId = await getUserId()
+    if (!userId) return null
+    const month = new Date().toISOString().slice(0, 7) // "YYYY-MM"
+
+    // Tenter d'abord un update atomique via RPC ou increment manuel
+    const { data: existing } = await supabase
+      .from('ai_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('month', month)
+      .maybeSingle()
+
+    const newCount = (existing?.count ?? 0) + 1
+
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .upsert(
+        { user_id: userId, month, count: newCount, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,month' }
+      )
+      .select('count')
+      .single()
+
+    if (error) throw error
+    return data?.count ?? newCount
+  } catch (error) {
+    console.warn('[supabaseDb] incrementAiUsage:', error.message)
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GARMIN DAILY
 // ---------------------------------------------------------------------------
 

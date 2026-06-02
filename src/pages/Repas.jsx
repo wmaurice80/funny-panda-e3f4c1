@@ -10,7 +10,8 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMealsForDate } from '../db';
 import { syncedAddMeal, syncedDeleteMeal } from '../lib/syncManager';
-import { callClaude } from '../lib/claudeApi';
+import { callClaude, QuotaExceededError, AI_QUOTA_LIMIT, AI_QUOTA_WARNING_THRESHOLD } from '../lib/claudeApi';
+import { getAiUsage } from '../lib/supabaseDb';
 import AnalyseResult from '../components/AnalyseResult';
 import MealCard from '../components/MealCard';
 import CameraCapture from '../components/CameraCapture';
@@ -123,6 +124,9 @@ export default function Repas() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
 
+  // Quota IA
+  const [aiUsageCount, setAiUsageCount] = useState(null); // null = chargement
+
   // Journal du jour
   const [meals, setMeals] = useState([]);
   const [loadingMeals, setLoadingMeals] = useState(true);
@@ -136,9 +140,20 @@ export default function Repas() {
     setLoadingMeals(false);
   }, []);
 
+  // Charger le quota IA
+  const loadAiUsage = useCallback(async () => {
+    if (!user?.id) { setAiUsageCount(0); return; }
+    const count = await getAiUsage();
+    setAiUsageCount(count);
+  }, [user?.id]);
+
   useEffect(() => {
     loadMeals();
   }, [loadMeals]);
+
+  useEffect(() => {
+    loadAiUsage();
+  }, [loadAiUsage]);
 
   // Listener natif sur l'input caméra — contourne le bug Android avec capture="environment"
   useEffect(() => {
@@ -179,8 +194,14 @@ export default function Repas() {
       const { data, mediaType } = await fileToBase64(file);
       const result = await analyserRepas(data, mediaType);
       setAnalyseResult(result);
+      // Rafraîchir le compteur après une analyse réussie
+      loadAiUsage();
     } catch (err) {
-      setAnalyseError(err.message ?? 'Erreur inconnue');
+      if (err instanceof QuotaExceededError) {
+        setAnalyseError(`Quota mensuel atteint (${AI_QUOTA_LIMIT} analyses/mois). Revenez le mois prochain.`);
+      } else {
+        setAnalyseError(err.message ?? 'Erreur inconnue');
+      }
     } finally {
       setAnalysing(false);
     }
@@ -204,7 +225,7 @@ export default function Repas() {
     // Réinitialiser l'UI
     setAnalyseResult(null);
     setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
 
     // Recharger le journal
     await loadMeals();
@@ -235,6 +256,11 @@ export default function Repas() {
   // ── Total kcal du jour ────────────────────────────────────────────────────
 
   const totalJour = meals.reduce((sum, m) => sum + (m.totalCalories ?? 0), 0);
+
+  // ── Quota IA ──────────────────────────────────────────────────────────────
+
+  const quotaAtteint = aiUsageCount !== null && aiUsageCount >= AI_QUOTA_LIMIT;
+  const quotaAlerte = aiUsageCount !== null && aiUsageCount >= AI_QUOTA_WARNING_THRESHOLD;
 
   // ────────────────────────────────────────────────────────────────────────
 
@@ -298,6 +324,20 @@ export default function Repas() {
 
         {/* ── Zone analyse ─────────────────────────────────────────────────── */}
 
+        {/* Compteur quota IA */}
+        {canUsePhoto && aiUsageCount !== null && (
+          <div className={`flex items-center justify-end gap-1.5 text-xs font-medium
+            ${quotaAlerte ? 'text-red-400' : 'text-gray-500'}`}>
+            <span>Analyses IA ce mois :</span>
+            <span className={`px-2 py-0.5 rounded-full border
+              ${quotaAlerte
+                ? 'bg-red-950/50 border-red-700/50 text-red-300'
+                : 'bg-[#1a1a2e] border-white/10 text-gray-400'}`}>
+              {aiUsageCount} / {AI_QUOTA_LIMIT}
+            </span>
+          </div>
+        )}
+
         {/* Boutons (visible si pas d'analyse en cours / résultat affiché) */}
         {!analysing && !analyseResult && (
           <>
@@ -313,24 +353,37 @@ export default function Repas() {
             )}
 
             {canUsePhoto ? (
-              /* Bouton caméra principal — réservé à wmaurice */
-              <button
-                type="button"
-                onClick={() => setShowCamera(true)}
-                className="flex flex-col items-center justify-center gap-3 w-full py-10
-                           rounded-3xl
-                           bg-gradient-to-br from-violet-700 to-indigo-600
-                           shadow-xl shadow-violet-900/40
-                           hover:opacity-90 active:scale-95 transition-all duration-200"
-              >
-                <span className="text-5xl">📸</span>
-                <span className="text-white font-semibold text-base tracking-wide">
-                  Photographier un repas
-                </span>
-                <span className="text-violet-200 text-xs">
-                  L'IA analysera les calories et protéines
-                </span>
-              </button>
+              quotaAtteint ? (
+                /* Quota atteint — bouton désactivé */
+                <div className="flex flex-col items-center justify-center gap-3 w-full py-10
+                                rounded-3xl bg-[#1a1a2e] border border-red-800/50 text-center px-6">
+                  <span className="text-4xl">🚫</span>
+                  <span className="text-red-300 font-semibold text-sm">Quota mensuel atteint</span>
+                  <span className="text-red-500 text-xs">
+                    Tu as utilisé {AI_QUOTA_LIMIT}/{AI_QUOTA_LIMIT} analyses IA ce mois-ci.
+                    Reviens le mois prochain.
+                  </span>
+                </div>
+              ) : (
+                /* Bouton caméra principal — réservé à wmaurice */
+                <button
+                  type="button"
+                  onClick={() => setShowCamera(true)}
+                  className="flex flex-col items-center justify-center gap-3 w-full py-10
+                             rounded-3xl
+                             bg-gradient-to-br from-violet-700 to-indigo-600
+                             shadow-xl shadow-violet-900/40
+                             hover:opacity-90 active:scale-95 transition-all duration-200"
+                >
+                  <span className="text-5xl">📸</span>
+                  <span className="text-white font-semibold text-base tracking-wide">
+                    Photographier un repas
+                  </span>
+                  <span className="text-violet-200 text-xs">
+                    L'IA analysera les calories et protéines
+                  </span>
+                </button>
+              )
             ) : (
               /* Bannière pour les autres utilisateurs */
               <div className="flex flex-col items-center justify-center gap-2 w-full py-8
@@ -343,7 +396,7 @@ export default function Repas() {
 
             {/* Boutons secondaires */}
             <div className="flex gap-2">
-              {canUsePhoto && (
+              {canUsePhoto && !quotaAtteint && (
                 <button
                   type="button"
                   onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}

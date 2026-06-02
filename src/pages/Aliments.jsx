@@ -4,10 +4,12 @@
 // Accessible depuis /repas via le bouton "➕ Ajouter manuellement"
 // Après enregistrement du repas, retour vers /repas
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncedAddMeal } from '../lib/syncManager';
-import { callClaude } from '../lib/claudeApi';
+import { callClaude, QuotaExceededError, AI_QUOTA_LIMIT, AI_QUOTA_WARNING_THRESHOLD } from '../lib/claudeApi';
+import { getAiUsage } from '../lib/supabaseDb';
+import { useAuth } from '../lib/AuthContext';
 import ProteinSources from '../components/ProteinSources';
 import DrinkSources from '../components/DrinkSources';
 
@@ -19,6 +21,7 @@ const OFF_SEARCH_URL = (query) =>
 const FETCH_TIMEOUT_MS = 5000;
 
 async function estimerAlimentIA(description) {
+  // Lance l'appel — QuotaExceededError sera propagée si quota atteint
   const json = await callClaude({
     max_tokens: 256,
     messages: [{
@@ -88,7 +91,7 @@ function Spinner() {
 }
 
 /** Formulaire de saisie de quantité pour un produit OFF sélectionné */
-function QuantiteForm({ produit, onAjouter, onAnnuler }) {
+function QuantiteForm({ produit, onAjouter, onAnnuler, quotaAtteint = false, onUsageUpdate }) {
   const [grammes, setGrammes] = useState('');
   const kcalPer100g = getKcalPer100g(produit.nutriments);
   const protPer100g = getProtPer100g(produit.nutriments);
@@ -174,6 +177,8 @@ function QuantiteForm({ produit, onAjouter, onAnnuler }) {
           onAjouter={onAjouter}
           onAnnuler={onAnnuler}
           inline
+          quotaAtteint={quotaAtteint}
+          onUsageUpdate={onUsageUpdate}
         />
       )}
 
@@ -202,7 +207,7 @@ function QuantiteForm({ produit, onAjouter, onAnnuler }) {
 }
 
 /** Formulaire de saisie libre avec estimation IA */
-function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = false }) {
+function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = false, quotaAtteint = false, onUsageUpdate }) {
   const [nom, setNom] = useState(nomInitial);
   const [kcal, setKcal] = useState('');
   const [proteines, setProteines] = useState('');
@@ -212,7 +217,7 @@ function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = 
   const [iaError, setIaError] = useState('');
 
   async function handleEstimer() {
-    if (!nom.trim()) return;
+    if (!nom.trim() || quotaAtteint) return;
     setEstimating(true);
     setIaError('');
     setIaNote('');
@@ -222,8 +227,14 @@ function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = 
       if (result.proteines != null) setProteines(String(result.proteines));
       if (result.portion) setPortion(result.portion);
       if (result.note) setIaNote(result.note);
+      // Rafraîchir le compteur après succès
+      if (onUsageUpdate) onUsageUpdate();
     } catch (err) {
-      setIaError(err.message ?? 'Estimation impossible');
+      if (err instanceof QuotaExceededError) {
+        setIaError(`Quota mensuel atteint (${AI_QUOTA_LIMIT} analyses/mois). Revenez le mois prochain.`);
+      } else {
+        setIaError(err.message ?? 'Estimation impossible');
+      }
     } finally {
       setEstimating(false);
     }
@@ -284,7 +295,8 @@ function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = 
           <button
             type="button"
             onClick={handleEstimer}
-            disabled={!nom.trim() || estimating}
+            disabled={!nom.trim() || estimating || quotaAtteint}
+            title={quotaAtteint ? `Quota mensuel atteint (${AI_QUOTA_LIMIT}/mois)` : 'Estimer avec l\'IA'}
             className="flex-shrink-0 px-3 py-2 rounded-xl bg-violet-900/50 border border-violet-600/50
                        text-violet-300 text-xs font-semibold
                        disabled:opacity-40 hover:bg-violet-800/50 active:scale-95 transition-all duration-200
@@ -292,8 +304,8 @@ function ManualKcalInput({ nom: nomInitial = '', onAjouter, onAnnuler, inline = 
           >
             {estimating
               ? <div className="w-3 h-3 rounded-full border border-violet-300 border-t-transparent animate-spin" />
-              : <span>✨</span>}
-            {estimating ? 'Calcul…' : 'IA'}
+              : <span>{quotaAtteint ? '🚫' : '✨'}</span>}
+            {estimating ? 'Calcul…' : quotaAtteint ? 'Quota atteint' : 'IA'}
           </button>
         </div>
         {iaNote && <p className="text-xs text-violet-400 italic">{iaNote}</p>}
@@ -406,6 +418,7 @@ function PanierItem({ item, onRetirer }) {
 
 export default function Aliments() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Recherche
   const [query, setQuery] = useState('');
@@ -426,7 +439,24 @@ export default function Aliments() {
   // Accordéon panier
   const [panierOuvert, setPanierOuvert] = useState(false);
 
+  // Quota IA
+  const [aiUsageCount, setAiUsageCount] = useState(null);
+
   const inputRef = useRef(null);
+
+  // Charger le quota IA au montage
+  const loadAiUsage = useCallback(async () => {
+    if (!user?.id) { setAiUsageCount(0); return; }
+    const count = await getAiUsage();
+    setAiUsageCount(count);
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadAiUsage();
+  }, [loadAiUsage]);
+
+  const quotaAtteint = aiUsageCount !== null && aiUsageCount >= AI_QUOTA_LIMIT;
+  const quotaAlerte = aiUsageCount !== null && aiUsageCount >= AI_QUOTA_WARNING_THRESHOLD;
 
   // ── Recherche OFF ───────────────────────────────────────────────────────────
 
@@ -527,6 +557,20 @@ export default function Aliments() {
           <h1 className="text-xl font-bold text-white">Ajouter des aliments</h1>
         </div>
 
+        {/* Compteur quota IA */}
+        {aiUsageCount !== null && (
+          <div className={`flex items-center justify-end gap-1.5 text-xs font-medium mb-2
+            ${quotaAlerte ? 'text-red-400' : 'text-gray-500'}`}>
+            <span>Analyses IA ce mois :</span>
+            <span className={`px-2 py-0.5 rounded-full border
+              ${quotaAlerte
+                ? 'bg-red-950/50 border-red-700/50 text-red-300'
+                : 'bg-[#1a1a2e] border-white/10 text-gray-400'}`}>
+              {aiUsageCount} / {AI_QUOTA_LIMIT}
+            </span>
+          </div>
+        )}
+
         {/* Barre de recherche */}
         <form onSubmit={handleSearchSubmit} className="relative">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
@@ -592,6 +636,8 @@ export default function Aliments() {
                     produit={produit}
                     onAjouter={ajouterAuPanier}
                     onAnnuler={() => setProduitSelectionne(null)}
+                    quotaAtteint={quotaAtteint}
+                    onUsageUpdate={loadAiUsage}
                   />
                 )}
               </div>
@@ -628,7 +674,7 @@ export default function Aliments() {
                 Saisie manuelle
               </p>
             )}
-            <ManualKcalInput onAjouter={ajouterAuPanier} />
+            <ManualKcalInput onAjouter={ajouterAuPanier} quotaAtteint={quotaAtteint} onUsageUpdate={loadAiUsage} />
           </div>
         )}
 
