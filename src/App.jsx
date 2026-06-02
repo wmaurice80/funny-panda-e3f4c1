@@ -42,6 +42,7 @@ export default function App() {
   }
 
   // Authentifié : afficher l'application normale
+
   return (
     <>
       <Routes>

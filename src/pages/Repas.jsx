@@ -495,9 +495,20 @@ export default function Repas() {
           )}
 
           {!loadingMeals && meals.length === 0 && (
-            <div className="flex flex-col items-center gap-2 py-10 text-gray-600">
-              <span className="text-4xl">🍽️</span>
-              <p className="text-sm">Aucun repas enregistré aujourd'hui</p>
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <span className="text-5xl">🍽️</span>
+              <p className="text-base font-semibold text-gray-300">Ajoute ton premier repas</p>
+              <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
+                Utilise la recherche manuelle pour enregistrer ce que tu manges et suivre tes calories.
+              </p>
+              <button
+                onClick={() => navigate('/aliments', { state: { categorie, date: repasDate, heure: repasHeure } })}
+                className="mt-1 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500
+                           active:scale-95 text-white font-semibold text-sm
+                           shadow-lg shadow-violet-900/40 transition-all duration-200 flex items-center gap-2"
+              >
+                <span>➕</span> Recherche manuelle
+              </button>
             </div>
           )}
 

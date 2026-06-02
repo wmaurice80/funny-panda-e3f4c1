@@ -529,6 +529,55 @@ export default function Dashboard() {
 
   if (!profile) return null;
 
+  // Profil incomplet : poids ou prénom manquant → afficher un encart d'invitation plutôt que des 0
+  const profileIncomplet = !profile.poids || profile.poids === 0 || !profile.prenom;
+
+  if (profileIncomplet) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#0f0f1a] pb-36">
+        {/* Header */}
+        <div className="px-5 pt-12 pb-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500 font-medium">
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h1 className="text-2xl font-bold text-white mt-0.5">Bonjour&nbsp;👋</h1>
+          </div>
+          <button
+            onClick={signOut}
+            className="w-9 h-9 flex items-center justify-center rounded-xl
+                       bg-[#1a1a2e] border border-white/10 text-gray-400
+                       hover:text-red-400 hover:border-red-800/50 active:scale-90 transition-all duration-200"
+            title="Se déconnecter"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        </div>
+        <div className="px-5 flex flex-col gap-4 mt-4">
+          <div className="bg-[#1a1a2e] rounded-2xl p-6 flex flex-col items-center gap-4 shadow-xl text-center border border-violet-800/30">
+            <span className="text-5xl">👤</span>
+            <h2 className="text-lg font-bold text-white">Configure ton profil</h2>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Il manque ton poids ou ton prénom. Renseigne-les pour voir tes besoins caloriques personnalisés.
+            </p>
+            <button
+              onClick={() => navigate('/profil')}
+              className="w-full py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500
+                         active:scale-95 text-white font-semibold text-sm
+                         shadow-lg shadow-violet-900/40 transition-all duration-200"
+            >
+              Compléter mon profil
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
 

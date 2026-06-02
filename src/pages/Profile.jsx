@@ -9,12 +9,12 @@ import { useAuth } from '../lib/AuthContext';
 const INITIAL = {
   prenom: '',
   poids: '',
-  taille: '',
-  age: '',
+  taille: '170',
+  age: '30',
   sexe: 'homme',
   niveauActivite: 'modere',
   objectif: 'maintien',
-  vitesseObjectif: 'moderee',
+  vitesseObjectif: 'lente',
   tdeeMesure: '',
   masseGrasse: '',
 };
@@ -67,12 +67,12 @@ export default function Profile() {
   const [estTourTaille, setEstTourTaille] = useState('');
   const [estTourCou, setEstTourCou] = useState('');
   const [estTourHanches, setEstTourHanches] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
 
   useEffect(() => {
     getProfile().then((profile) => {
       if (profile) {
-        setIsEdit(true);
-        setForm({
+        const loadedForm = {
           prenom: profile.prenom ?? '',
           poids: String(profile.poids ?? ''),
           taille: String(profile.taille ?? ''),
@@ -83,7 +83,16 @@ export default function Profile() {
           vitesseObjectif: profile.vitesseObjectif ?? 'moderee',
           tdeeMesure: profile.tdeeMesure ? String(profile.tdeeMesure) : '',
           masseGrasse: profile.masseGrasse ? String(profile.masseGrasse) : '',
-        });
+        };
+        setIsEdit(true);
+        setForm(loadedForm);
+        // Profil vide = nouvel utilisateur : afficher la bannière de bienvenue
+        if (!loadedForm.prenom && (!loadedForm.poids || loadedForm.poids === '0')) {
+          setWelcomeMessage('Bienvenue ! Complète ton profil pour commencer.');
+        }
+      } else {
+        // Aucun profil en IDB = premier passage garanti
+        setWelcomeMessage('Bienvenue ! Complète ton profil pour commencer.');
       }
     });
   }, []);
@@ -145,6 +154,12 @@ export default function Profile() {
           <p className="text-sm text-gray-400 mt-1">
             Ces informations permettent de calculer vos besoins caloriques.
           </p>
+          {welcomeMessage && (
+            <div className="mt-3 flex items-start gap-2 bg-violet-900/30 border border-violet-600/40 rounded-xl px-4 py-3">
+              <span className="text-lg mt-0.5">👋</span>
+              <p className="text-sm font-medium text-violet-200">{welcomeMessage}</p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-1">
           <button
@@ -417,10 +432,10 @@ export default function Profile() {
         {/* TDEE mesuré Garmin (optionnel) */}
         <div className="bg-[#0d1117] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
           <div>
-            <p className="text-xs font-semibold text-gray-400">⌚ TDEE mesuré par Garmin</p>
+            <p className="text-xs font-semibold text-gray-400">⌚ TDEE mesuré par Garmin <span className="font-normal text-gray-600">(optionnel — avancé)</span></p>
             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-              Renseigne ta dépense calorique moyenne d'une journée sans sport (moyenne de plusieurs mesures Garmin).
-              Si renseigné, remplace le calcul automatique.
+              Si tu as une montre Garmin, tu peux renseigner ta dépense calorique moyenne mesurée.
+              Sinon, laisse vide — le calcul automatique (Mifflin-St Jeor) est suffisant pour démarrer.
             </p>
           </div>
           <input

@@ -53,7 +53,7 @@ export default function Auth() {
         if (error) {
           setError(translateError(error.message))
         } else {
-          setMessage('Compte créé ! Vérifiez votre email pour confirmer votre inscription.')
+          setMessage('Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
         }
       } else if (mode === 'reset') {
         const { error } = await resetPassword(email)
