@@ -531,6 +531,19 @@ export default function Profile() {
 
       </form>
 
+      {/* Lien vers la page d'installation PWA */}
+      <div className="px-5 mt-6 flex justify-center">
+        <button
+          type="button"
+          onClick={() => navigate('/install')}
+          className="text-xs text-violet-400 hover:text-violet-300 transition-colors duration-200
+                     flex items-center gap-1.5 py-1 underline underline-offset-2"
+        >
+          <span>📲</span>
+          Comment installer l'app sur mon téléphone ?
+        </button>
+      </div>
+
     </div>
   );
 }

@@ -15,8 +15,9 @@ import Migration from './pages/Migration';
 import GoogleFitCallback from './pages/GoogleFitCallback';
 import Integrations from './pages/Integrations';
 import Aide from './pages/Aide';
+import Install from './pages/Install';
 
-const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations'];
+const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations', '/install'];
 
 function Spinner({ label }) {
   return (
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/auth/google/callback" element={<GoogleFitCallback />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/aide" element={<Aide />} />
+        <Route path="/install" element={<Install />} />
       </Routes>
       {showNav && <BottomNav />}
     </>

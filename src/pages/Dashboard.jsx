@@ -8,6 +8,7 @@ import { isConnected, hasRefreshToken, fetchAllDayData } from '../lib/googleFit'
 import { syncedDeleteActivity, syncGarminDaily, syncGarminActivities } from '../lib/syncManager';
 import { supabase } from '../lib/supabase';
 import GoogleFitCard from '../components/GoogleFitCard';
+import InstallBanner from '../components/InstallBanner';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -635,6 +636,9 @@ export default function Dashboard() {
           {ACTIVITY_LABELS[profile.niveauActivite]}
         </span>
       </div>
+
+      {/* Bannière installation PWA */}
+      <InstallBanner />
 
       {/* Cards */}
       <div className="px-5 flex flex-col gap-4">
