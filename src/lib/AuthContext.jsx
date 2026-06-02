@@ -110,7 +110,7 @@ export function AuthProvider({ children }) {
 
   async function resetPassword(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+      redirectTo: 'https://calsnapwmp.netlify.app/reset-password',
     })
     return { error }
   }

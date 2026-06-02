@@ -60,7 +60,7 @@ export default function Auth() {
         if (error) {
           setError(translateError(error.message))
         } else {
-          setMessage('Un lien de réinitialisation a été envoyé à votre adresse email.')
+          setMessage(`📧 Un lien de réinitialisation a été envoyé à ${email}`)
         }
       }
     } finally {

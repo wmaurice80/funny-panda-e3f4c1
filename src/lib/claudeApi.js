@@ -2,7 +2,7 @@
 // Gère le retry avec backoff exponentiel sur les erreurs 529 (overloaded) et 503.
 // Gère aussi le quota mensuel d'analyses IA (100/mois) via Supabase.
 
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 import { getAiUsage, incrementAiUsage } from './supabaseDb';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';

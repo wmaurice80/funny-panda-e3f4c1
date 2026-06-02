@@ -16,8 +16,12 @@ import GoogleFitCallback from './pages/GoogleFitCallback';
 import Integrations from './pages/Integrations';
 import Aide from './pages/Aide';
 import Install from './pages/Install';
+import ResetPassword from './pages/ResetPassword';
 
-const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations', '/install'];
+const NO_NAV_ROUTES = ['/profil', '/aliments', '/migration', '/auth/google/callback', '/integrations', '/install', '/reset-password'];
+
+// Routes accessibles sans authentification
+const PUBLIC_ROUTES = ['/reset-password'];
 
 function Spinner({ label }) {
   return (
@@ -35,6 +39,16 @@ export default function App() {
   const showNav = !NO_NAV_ROUTES.includes(pathname);
 
   if (loading) return <Spinner />;
+
+  // Routes publiques accessibles sans authentification (ex: reset mot de passe)
+  if (PUBLIC_ROUTES.includes(pathname)) {
+    return (
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    );
+  }
+
   if (syncing) return <Spinner label="Synchronisation des données…" />
 
   // Non authentifié : afficher la page d'auth
