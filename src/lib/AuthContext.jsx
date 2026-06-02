@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { pullProfile, pullAllMeals, pullAllActivities, pullAllWeights } from './supabaseDb'
-import { saveProfile, addMeal, addActivity, addWeight, clearAllLocalData } from '../db'
+import { saveProfile, addMeal, addActivity, addWeight, clearAllLocalData, getActivitiesForDate } from '../db'
 import { syncGarminDaily } from './syncManager'
 
 const LAST_USER_KEY = 'calsnap_last_user_id'
@@ -22,7 +22,18 @@ async function syncFromSupabase() {
     // Activités
     const remoteActivities = await pullAllActivities()
     for (const activity of remoteActivities) {
-      await addActivity(activity).catch(() => {})
+      if (activity.id) {
+        // Activité manuelle avec local_id → add direct (échoue si déjà présente, ok)
+        await addActivity(activity).catch(() => {})
+      } else {
+        // Activité Garmin sans local_id → dédup par date + note avant d'insérer
+        const existing = await getActivitiesForDate(activity.date).catch(() => [])
+        const alreadyHere = existing.some(a => a.note === activity.note && a.date === activity.date)
+        if (!alreadyHere) {
+          const { id: _id, remoteId: _rid, ...data } = activity
+          await addActivity(data).catch(() => {})
+        }
+      }
     }
 
     // Pesées
