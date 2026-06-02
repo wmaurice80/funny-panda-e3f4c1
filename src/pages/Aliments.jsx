@@ -6,6 +6,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const UNLIMITED_USER_EMAIL = 'wmaurice.peroumal@gmail.com';
 import { syncedAddMeal } from '../lib/syncManager';
 import { callClaude, QuotaExceededError, AI_QUOTA_LIMIT, AI_QUOTA_WARNING_THRESHOLD } from '../lib/claudeApi';
 import { getAiUsage } from '../lib/supabaseDb';
@@ -419,6 +421,7 @@ function PanierItem({ item, onRetirer }) {
 export default function Aliments() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isUnlimitedUser = user?.email === UNLIMITED_USER_EMAIL;
 
   // Recherche
   const [query, setQuery] = useState('');
@@ -558,7 +561,7 @@ export default function Aliments() {
         </div>
 
         {/* Compteur quota IA */}
-        {aiUsageCount !== null && (
+        {!isUnlimitedUser && aiUsageCount !== null && (
           <div className={`flex items-center justify-end gap-1.5 text-xs font-medium mb-2
             ${quotaAlerte ? 'text-red-400' : 'text-gray-500'}`}>
             <span>Analyses IA ce mois :</span>

@@ -17,6 +17,8 @@ import MealCard from '../components/MealCard';
 import CameraCapture from '../components/CameraCapture';
 import { useAuth } from '../lib/AuthContext';
 
+const UNLIMITED_USER_EMAIL = 'wmaurice.peroumal@gmail.com';
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -108,6 +110,7 @@ export default function Repas() {
   const galleryInputRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isUnlimitedUser = user?.email === UNLIMITED_USER_EMAIL;
 
 
   // États catégorie + date/heure
@@ -323,7 +326,7 @@ export default function Repas() {
         {/* ── Zone analyse ─────────────────────────────────────────────────── */}
 
         {/* Compteur quota IA */}
-        {aiUsageCount !== null && (
+        {!isUnlimitedUser && aiUsageCount !== null && (
           <div className={`flex items-center justify-end gap-1.5 text-xs font-medium
             ${quotaAlerte ? 'text-red-400' : 'text-gray-500'}`}>
             <span>Analyses IA ce mois :</span>
