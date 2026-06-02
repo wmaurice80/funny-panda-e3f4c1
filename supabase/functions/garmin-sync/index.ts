@@ -149,9 +149,11 @@ serve(async (req) => {
           if (!error) {
             report.activitiesOk++
           } else {
+            console.error("[activities upsert]", error.message, error.code)
             report.activitiesErr++
           }
-        } catch {
+        } catch (e) {
+          console.error("[activities catch]", (e as Error).message)
           report.activitiesErr++
         }
       }
@@ -172,15 +174,17 @@ serve(async (req) => {
           )
           if (!error) {
             report.weightOk = true
-
             if (weight.masseGrassePct != null) {
               await supabase
                 .from("profiles")
                 .update({ masse_grasse: weight.masseGrassePct })
                 .eq("id", CALSNAP_USER_ID)
             }
+          } else {
+            console.error("[weights upsert]", error.message, error.code)
           }
-        } catch {
+        } catch (e) {
+          console.error("[weights catch]", (e as Error).message)
           // weightOk reste false
         }
       }
