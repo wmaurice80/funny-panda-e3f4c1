@@ -167,6 +167,15 @@ export async function fetchRawActivities(date: string): Promise<unknown> {
   )
 }
 
+export async function fetchRawDailySummary(date: string): Promise<unknown> {
+  const accessToken = await getValidToken()
+  const displayName = await getDisplayName()
+  return garminFetch(
+    `/usersummary-service/usersummary/daily/${displayName}?calendarDate=${date}`,
+    accessToken,
+  )
+}
+
 // ─── Public API functions ─────────────────────────────────────────────────────
 
 export async function fetchDailySummary(date: string): Promise<DailySummary | null> {

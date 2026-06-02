@@ -6,6 +6,7 @@ import {
   fetchWeight,
   fetchRawWeight,
   fetchRawActivities,
+  fetchRawDailySummary,
   loadTokens,
 } from "./garmin.ts"
 import type { SyncReport } from "./types.ts"
@@ -79,12 +80,13 @@ serve(async (req) => {
     // Mode debug : retourne les réponses brutes Garmin pour diagnostic
     if (debug) {
       const today = new Date().toISOString().slice(0, 10)
-      const [rawWeight, rawActivities] = await Promise.all([
+      const [rawDailySummary, rawWeight, rawActivities] = await Promise.all([
+        fetchRawDailySummary(today).catch((e: Error) => ({ error: e.message })),
         fetchRawWeight(today).catch((e: Error) => ({ error: e.message })),
         fetchRawActivities(today).catch((e: Error) => ({ error: e.message })),
       ])
       return new Response(
-        JSON.stringify({ success: true, debug: true, rawWeight, rawActivities }),
+        JSON.stringify({ success: true, debug: true, rawDailySummary, rawWeight, rawActivities }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
