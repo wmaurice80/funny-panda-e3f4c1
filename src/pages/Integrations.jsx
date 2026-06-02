@@ -54,9 +54,12 @@ function Spinner() {
   );
 }
 
+const GARMIN_OWNER_EMAIL = 'wmaurice.peroumal@gmail.com';
+
 export default function Integrations() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isGarminOwner = user?.email === GARMIN_OWNER_EMAIL;
   const [connected, setConnected] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -405,101 +408,103 @@ export default function Integrations() {
                 <p className="text-xs text-gray-500">TDEE · Activités · Poids</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
-                             bg-emerald-900/30 border border-emerald-700/40 text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Actif
-            </span>
+            {isGarminOwner ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
+                               bg-emerald-900/30 border border-emerald-700/40 text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Actif
+              </span>
+            ) : (
+              <PendingBadge />
+            )}
           </div>
 
-          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-            Synchronise ton TDEE mesuré, tes séances et ton poids directement depuis Garmin Connect.
-            La sync automatique tourne chaque matin à 7h.
-          </p>
-
-          {/* Bouton Sync */}
-          <button
-            onClick={handleGarminSync}
-            disabled={garminSyncing}
-            className="w-full py-3 rounded-xl
-                       bg-gradient-to-r from-teal-600 to-cyan-600
-                       text-white font-semibold text-sm
-                       flex items-center justify-center gap-2
-                       hover:opacity-90 active:scale-95 transition-all duration-200
-                       disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {garminSyncing ? (
-              <>
-                <Spinner />
-                Synchronisation Garmin…
-              </>
-            ) : (
-              <>
-                <span>🔄</span>
-                Sync Garmin maintenant
-              </>
-            )}
-          </button>
-
-          {/* Résultat */}
-          {garminResult && (
-            <div className="mt-3 rounded-xl px-4 py-3 bg-emerald-900/20 border border-emerald-700/30
-                            flex flex-col gap-1.5">
-              <p className="text-sm font-bold text-emerald-400">Sync Garmin terminée ✓</p>
-              <p className="text-xs text-gray-400">
-                TDEE mis à jour : {garminResult.tdeeOk ? '✓' : '—'}
+          {isGarminOwner ? (
+            /* ── Vue propriétaire : sync complète ── */
+            <>
+              <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                Synchronise ton TDEE mesuré, tes séances et ton poids directement depuis Garmin Connect.
+                La sync automatique tourne chaque matin à 7h.
               </p>
-              <p className="text-xs text-gray-400">
-                Activités importées : {garminResult.activitesOk}
-                {garminResult.activitesErr > 0 && (
-                  <span className="text-orange-400"> ({garminResult.activitesErr} erreur{garminResult.activitesErr > 1 ? 's' : ''})</span>
+
+              <button
+                onClick={handleGarminSync}
+                disabled={garminSyncing}
+                className="w-full py-3 rounded-xl
+                           bg-gradient-to-r from-teal-600 to-cyan-600
+                           text-white font-semibold text-sm
+                           flex items-center justify-center gap-2
+                           hover:opacity-90 active:scale-95 transition-all duration-200
+                           disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {garminSyncing ? (
+                  <><Spinner />Synchronisation Garmin…</>
+                ) : (
+                  <><span>🔄</span>Sync Garmin maintenant</>
                 )}
-              </p>
-              <p className="text-xs text-gray-400">
-                Poids : {garminResult.poidsOk ? '✓ synchronisé' : '— aucune pesée'}
-              </p>
-            </div>
-          )}
+              </button>
 
-          {/* Erreur */}
-          {garminError && (
-            <div className="mt-3 rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
-              <p className="text-xs text-red-400">{garminError}</p>
-            </div>
-          )}
+              {garminResult && (
+                <div className="mt-3 rounded-xl px-4 py-3 bg-emerald-900/20 border border-emerald-700/30
+                                flex flex-col gap-1.5">
+                  <p className="text-sm font-bold text-emerald-400">Sync Garmin terminée ✓</p>
+                  <p className="text-xs text-gray-400">TDEE mis à jour : {garminResult.tdeeOk ? '✓' : '—'}</p>
+                  <p className="text-xs text-gray-400">
+                    Activités importées : {garminResult.activitesOk}
+                    {garminResult.activitesErr > 0 && (
+                      <span className="text-orange-400"> ({garminResult.activitesErr} erreur{garminResult.activitesErr > 1 ? 's' : ''})</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Poids : {garminResult.poidsOk ? '✓ synchronisé' : '— aucune pesée'}
+                  </p>
+                </div>
+              )}
 
-          {/* Bouton debug */}
-          <button
-            onClick={async () => {
-              setGarminDebugging(true)
-              setGarminDebug(null)
-              try {
-                const { data, error } = await supabase.functions.invoke('garmin-sync', {
-                  body: { debug: true }
-                })
-                if (error) throw error
-                setGarminDebug(data)
-              } catch (err) {
-                setGarminDebug({ error: err?.message ?? 'Erreur inconnue' })
-              } finally {
-                setGarminDebugging(false)
-              }
-            }}
-            disabled={garminDebugging}
-            className="mt-2 w-full py-2 rounded-xl border border-white/10 bg-[#0f0f1a]
-                       text-gray-500 font-medium text-xs flex items-center justify-center gap-2
-                       hover:text-gray-300 transition-colors disabled:opacity-50"
-          >
-            {garminDebugging ? '⏳ Analyse...' : '🔍 Diagnostiquer API Garmin'}
-          </button>
+              {garminError && (
+                <div className="mt-3 rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
+                  <p className="text-xs text-red-400">{garminError}</p>
+                </div>
+              )}
 
-          {garminDebug && (
-            <div className="mt-2 bg-[#0f0f1a] rounded-xl p-3 border border-white/10 overflow-x-auto">
-              <p className="text-xs font-semibold text-gray-400 mb-2">Réponse brute Garmin :</p>
-              <pre className="text-[10px] text-gray-400 whitespace-pre-wrap break-all">
-                {JSON.stringify(garminDebug, null, 2)}
-              </pre>
-            </div>
+              <button
+                onClick={async () => {
+                  setGarminDebugging(true)
+                  setGarminDebug(null)
+                  try {
+                    const { data, error } = await supabase.functions.invoke('garmin-sync', { body: { debug: true } })
+                    if (error) throw error
+                    setGarminDebug(data)
+                  } catch (err) {
+                    setGarminDebug({ error: err?.message ?? 'Erreur inconnue' })
+                  } finally {
+                    setGarminDebugging(false)
+                  }
+                }}
+                disabled={garminDebugging}
+                className="mt-2 w-full py-2 rounded-xl border border-white/10 bg-[#0f0f1a]
+                           text-gray-500 font-medium text-xs flex items-center justify-center gap-2
+                           hover:text-gray-300 transition-colors disabled:opacity-50"
+              >
+                {garminDebugging ? '⏳ Analyse...' : '🔍 Diagnostiquer API Garmin'}
+              </button>
+
+              {garminDebug && (
+                <div className="mt-2 bg-[#0f0f1a] rounded-xl p-3 border border-white/10 overflow-x-auto">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">Réponse brute Garmin :</p>
+                  <pre className="text-[10px] text-gray-400 whitespace-pre-wrap break-all">
+                    {JSON.stringify(garminDebug, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── Vue autres users : à venir ── */
+            <p className="text-sm text-gray-500 leading-relaxed">
+              La synchronisation Garmin n'est pas encore disponible pour tous les utilisateurs.
+              En attendant, tu peux saisir ton TDEE manuellement dans ton profil, ou importer
+              tes activités via Google Fit.
+            </p>
           )}
         </div>
 
