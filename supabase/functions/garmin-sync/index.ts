@@ -4,6 +4,8 @@ import {
   fetchActivities,
   fetchDailySummary,
   fetchWeight,
+  fetchRawWeight,
+  fetchRawActivities,
   loadTokens,
 } from "./garmin.ts"
 import type { SyncReport } from "./types.ts"
@@ -60,16 +62,31 @@ serve(async (req) => {
 
     let days = 1
     let offset = 0
+    let debug = false
     try {
       const body = await req.json()
       if (typeof body?.days === "number" && body.days > 0) {
-        days = Math.min(body.days, 30) // sécurité : max 30 jours
+        days = Math.min(body.days, 30)
       }
       if (typeof body?.offset === "number" && body.offset >= 0) {
         offset = Math.min(body.offset, 30)
       }
+      if (body?.debug === true) debug = true
     } catch {
       // body absent ou invalide → on garde le défaut
+    }
+
+    // Mode debug : retourne les réponses brutes Garmin pour diagnostic
+    if (debug) {
+      const today = new Date().toISOString().slice(0, 10)
+      const [rawWeight, rawActivities] = await Promise.all([
+        fetchRawWeight(today).catch((e: Error) => ({ error: e.message })),
+        fetchRawActivities(today).catch((e: Error) => ({ error: e.message })),
+      ])
+      return new Response(
+        JSON.stringify({ success: true, debug: true, rawWeight, rawActivities }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      )
     }
 
     const dates = generateDates(days, offset)

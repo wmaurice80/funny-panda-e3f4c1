@@ -149,6 +149,24 @@ async function garminFetch(path: string, accessToken: string): Promise<unknown> 
   return res.json()
 }
 
+// ─── Debug helpers ────────────────────────────────────────────────────────────
+
+export async function fetchRawWeight(date: string): Promise<unknown> {
+  const accessToken = await getValidToken()
+  return garminFetch(
+    `/weight-service/weight/dateRange?startDate=${date}&endDate=${date}`,
+    accessToken,
+  )
+}
+
+export async function fetchRawActivities(date: string): Promise<unknown> {
+  const accessToken = await getValidToken()
+  return garminFetch(
+    `/activitylist-service/activities/search/activities?startDate=${date}&endDate=${date}&limit=5`,
+    accessToken,
+  )
+}
+
 // ─── Public API functions ─────────────────────────────────────────────────────
 
 export async function fetchDailySummary(date: string): Promise<DailySummary | null> {

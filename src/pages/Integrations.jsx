@@ -67,6 +67,8 @@ export default function Integrations() {
   const [garminSyncing, setGarminSyncing] = useState(false)
   const [garminResult, setGarminResult] = useState(null) // { summary } | null
   const [garminError, setGarminError] = useState(null)
+  const [garminDebug, setGarminDebug] = useState(null)
+  const [garminDebugging, setGarminDebugging] = useState(false)
 
   // Vérification initiale de la connexion
   const checkConnection = useCallback(async () => {
@@ -457,6 +459,40 @@ export default function Integrations() {
           {garminError && (
             <div className="mt-3 rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
               <p className="text-xs text-red-400">{garminError}</p>
+            </div>
+          )}
+
+          {/* Bouton debug */}
+          <button
+            onClick={async () => {
+              setGarminDebugging(true)
+              setGarminDebug(null)
+              try {
+                const { data, error } = await supabase.functions.invoke('garmin-sync', {
+                  body: { debug: true }
+                })
+                if (error) throw error
+                setGarminDebug(data)
+              } catch (err) {
+                setGarminDebug({ error: err?.message ?? 'Erreur inconnue' })
+              } finally {
+                setGarminDebugging(false)
+              }
+            }}
+            disabled={garminDebugging}
+            className="mt-2 w-full py-2 rounded-xl border border-white/10 bg-[#0f0f1a]
+                       text-gray-500 font-medium text-xs flex items-center justify-center gap-2
+                       hover:text-gray-300 transition-colors disabled:opacity-50"
+          >
+            {garminDebugging ? '⏳ Analyse...' : '🔍 Diagnostiquer API Garmin'}
+          </button>
+
+          {garminDebug && (
+            <div className="mt-2 bg-[#0f0f1a] rounded-xl p-3 border border-white/10 overflow-x-auto">
+              <p className="text-xs font-semibold text-gray-400 mb-2">Réponse brute Garmin :</p>
+              <pre className="text-[10px] text-gray-400 whitespace-pre-wrap break-all">
+                {JSON.stringify(garminDebug, null, 2)}
+              </pre>
             </div>
           )}
         </div>
