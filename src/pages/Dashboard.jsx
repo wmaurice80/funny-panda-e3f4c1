@@ -375,6 +375,7 @@ export default function Dashboard() {
   const [gfitLoading, setGfitLoading] = useState(false);
   const [lastGarminEntry, setLastGarminEntry] = useState(null);
   const [garminSyncing, setGarminSyncing] = useState(false);
+  const [garminSyncOk, setGarminSyncOk] = useState(null); // true | false | null
 
   const loadData = useCallback(async () => {
     const today = todayISO();
@@ -496,6 +497,7 @@ export default function Dashboard() {
 
   const handleGarminSync = async () => {
     setGarminSyncing(true);
+    setGarminSyncOk(null);
     try {
       const { data, error } = await supabase.functions.invoke('garmin-sync', { body: { days: 2 } });
       if (error) throw error;
@@ -506,12 +508,12 @@ export default function Dashboard() {
       });
       await syncGarminDaily(user?.id).catch(() => {});
       await syncGarminActivities(user?.id, syncedDates).catch(() => {});
-      // Recharger les activités du jour → totalSport mis à jour
-      const acts = await getActivitiesForDate(todayISO());
-      setTotalSport(acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
       window.dispatchEvent(new CustomEvent('garmin-synced'));
+      setGarminSyncOk(true);
+      setTimeout(() => setGarminSyncOk(null), 3000);
     } catch {
-      // erreur silencieuse dans le Dashboard — l'utilisateur peut aller dans Intégrations pour le détail
+      setGarminSyncOk(false);
+      setTimeout(() => setGarminSyncOk(null), 4000);
     } finally {
       setGarminSyncing(false);
     }
@@ -643,14 +645,17 @@ export default function Dashboard() {
                 <button
                   onClick={handleGarminSync}
                   disabled={garminSyncing}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg
-                             bg-violet-600/20 border border-violet-500/30 text-violet-400
-                             hover:bg-violet-600/40 active:scale-90 transition-all duration-150
-                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150
+                    active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed
+                    ${garminSyncOk === true  ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-400'
+                    : garminSyncOk === false ? 'bg-red-600/20 border-red-500/40 text-red-400'
+                    : 'bg-violet-600/20 border-violet-500/30 text-violet-400 hover:bg-violet-600/40'}`}
                   aria-label="Synchroniser Garmin"
                 >
                   {garminSyncing
                     ? <span className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin block" />
+                    : garminSyncOk === true  ? <span className="text-[11px] font-bold">✓</span>
+                    : garminSyncOk === false ? <span className="text-[11px] font-bold">✗</span>
                     : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
                   }
                 </button>
