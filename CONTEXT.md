@@ -510,6 +510,78 @@ SELECT cron.schedule('garmin-daily-sync', '5 22 * * *', $$...$$);
 
 ---
 
+## Résumé de session — 2 juin 2026
+
+### Objectifs
+Corriger tous les bugs du pipeline Garmin sync (Edge Function → Supabase → IndexedDB → UI).
+
+### Bugs corrigés & fonctionnalités livrées
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `garmin.ts` | `garminActivityId` : `Number(id ?? 0)` → `id != null ? Number(id) : null` — évite violation contrainte unique sur 0 |
+| 2 | `garmin.ts` | `fetchWeight` : champ `dailyWeightSummaries` → `dateWeightList` (vrai nom retourné par l'API Garmin) → poids enfin détecté |
+| 3 | `index.ts` | UPSERT activités : si `garmin_activity_id` null → INSERT simple (pas d'UPSERT sur clé nulle) |
+| 4 | `Stats.jsx` | Ajout listener `garmin-synced` pour rafraîchir `garminDailyMap` après sync manuelle |
+| 5 | `Integrations.jsx` | Sync manuelle envoie `days:2` (aujourd'hui + hier) pour corriger les données de la veille |
+| 6 | `index.ts` | Mode `debug:true` : retourne `rawDailySummary` + `rawWeight` + `rawActivities` bruts pour diagnostic |
+| 7 | SQL Supabase | `GRANT SELECT, INSERT, UPDATE ON activities TO service_role` + idem sur `weights` |
+| 8 | SQL Supabase | Index `idx_activities_garmin_id` : partiel `WHERE IS NOT NULL` → index standard (PostgREST ne supporte pas les index partiels pour `onConflict`) |
+| 9 | `supabaseDb.js` | Ajout `pullGarminActivitiesForDates(userId, dates)` |
+| 10 | `syncManager.js` | Ajout `syncGarminActivities(userId, dates)` — dédup par date+note, insère dans IndexedDB |
+| 11 | `Integrations.jsx` | Appel `syncGarminActivities` après sync → activités visibles dans Activités + bilan du jour |
+| 12 | `Dashboard.jsx` | Bouton ⟳ dans encart Garmin mesuré — sync complète (TDEE + activités + poids) sans quitter l'accueil |
+| 13 | `Dashboard.jsx` | `garmin-synced` recharge aussi `totalSport` (pas seulement `lastGarminEntry`) |
+| 14 | `Dashboard.jsx` | Feedback visuel ✓ vert / ✗ rouge 3-4s après sync — plus de spinner muet |
+| 15 | `garmin.ts` | `stats.steps` → `stats.totalSteps` (vrai champ Garmin) — Pas enfin correct (était 0) |
+| 16 | `types.ts` + `garmin.ts` + `index.ts` | Stockage de `lastSyncTimestampGMT` dans `garmin_daily.device_last_sync` |
+| 17 | `supabaseDb.js` | Pull `device_last_sync` depuis Supabase |
+| 18 | `Dashboard.jsx` | Affiche "⌚ Montre sync à HH:MM" sous le total kcal — indique la fraîcheur de la donnée |
+| 19 | `Activites.jsx` | Suppression encart "Importer depuis Garmin Connect — À venir" (intégration réelle dans Intégrations) |
+| 20 | `AuthContext.jsx` | Fix restauration activités Garmin après déco/reco : `id: null` → `DataError` IDB silencieuse → dédup par date+note + strip id avant `addActivity` |
+
+### SQL manuel appliqué dans Supabase (cette session)
+```sql
+-- Index activités : partiel → standard (requis par PostgREST onConflict)
+DROP INDEX IF EXISTS idx_activities_garmin_id;
+CREATE UNIQUE INDEX idx_activities_garmin_id ON activities(user_id, garmin_activity_id);
+
+-- GRANTs service_role manquants sur tables existantes
+GRANT SELECT, INSERT, UPDATE ON public.activities TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.weights TO service_role;
+
+-- Colonne fraîcheur sync device
+ALTER TABLE garmin_daily ADD COLUMN IF NOT EXISTS device_last_sync timestamptz;
+```
+
+### Architecture sync Garmin — flux complet
+```
+Bouton ⟳ Dashboard (ou Sync dans Intégrations)
+  → supabase.functions.invoke('garmin-sync', { days: 2 })
+  → Edge Function : fetch daily summary + activités + poids
+  → UPSERT garmin_daily + UPSERT activities (si garmin_activity_id) + UPSERT weights
+  → syncGarminDaily(userId)  → garminDaily IndexedDB mis à jour
+  → syncGarminActivities(userId, dates)  → activités Garmin dans IndexedDB (dédup note+date)
+  → dispatchEvent('garmin-synced')
+     ├── Dashboard : reload garminRows + activities → lastGarminEntry + totalSport mis à jour
+     └── Stats     : reload garminDailyMap → burned jours passés mis à jour
+
+Login / session restore (AuthContext) :
+  → pullAllActivities → activités manuelles (id valide) : addActivity direct
+                     → activités Garmin (id null)       : dédup date+note, addActivity sans id
+```
+
+### Note sur le délai TDEE Garmin
+La montre sync vers Garmin Connect app (Bluetooth) puis l'app sync vers serveurs Garmin.
+L'API retourne `totalKilocalories` uniquement après la 2ème étape.
+`device_last_sync` (affiché dans l'encart) indique l'heure réelle des dernières données disponibles.
+Le cron de 00h05 Paris enregistre le total définitif de la veille (journée complète).
+
+### Git
+- Commits `e54e5ad` → `6e445af` pushés sur `main`
+- Edge Function redéployée à chaque fix
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
