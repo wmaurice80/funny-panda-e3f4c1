@@ -196,9 +196,10 @@ export async function fetchDailySummary(date: string): Promise<DailySummary | nu
       tdeeKcal: Number(totalKcal),
       activeKcal: Number(stats?.activeKilocalories ?? 0),
       bmrKcal: Number(stats?.bmrKilocalories ?? 0),
-      steps: Number(stats?.steps ?? 0),
+      steps: Number(stats?.totalSteps ?? stats?.steps ?? 0),  // Garmin retourne totalSteps
       restingHr:
         stats?.restingHeartRate != null ? Number(stats.restingHeartRate) : null,
+      deviceLastSync: (stats?.lastSyncTimestampGMT as string | undefined) ?? null,
     }
   } catch (err) {
     throw new Error(`fetchDailySummary: ${(err as Error).message}`)

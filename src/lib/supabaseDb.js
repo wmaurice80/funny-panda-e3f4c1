@@ -430,7 +430,7 @@ export async function pullGarminActivitiesForDates(userId, dates) {
 export async function pullGarminDaily(userId) {
   const { data, error } = await supabase
     .from('garmin_daily')
-    .select('date, total_kcal, active_kcal, bmr_kcal, steps')
+    .select('date, total_kcal, active_kcal, bmr_kcal, steps, device_last_sync')
     .eq('user_id', userId)
     .order('date', { ascending: false })
     .limit(90)

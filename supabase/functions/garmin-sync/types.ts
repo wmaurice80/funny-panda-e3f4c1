@@ -5,6 +5,7 @@ export interface DailySummary {
   bmrKcal: number
   steps: number
   restingHr: number | null
+  deviceLastSync: string | null  // lastSyncTimestampGMT
 }
 
 export interface GarminActivity {

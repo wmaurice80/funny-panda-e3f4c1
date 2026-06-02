@@ -661,10 +661,15 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="flex items-end gap-1 mb-3">
+            <div className="flex items-end gap-1 mb-1">
               <span className="text-2xl font-bold text-white">{lastGarminEntry.total_kcal.toLocaleString('fr-FR')}</span>
               <span className="text-sm text-gray-400 mb-0.5">kcal total</span>
             </div>
+            {lastGarminEntry.device_last_sync && (
+              <p className="text-[10px] text-gray-600 mb-3">
+                ⌚ Montre sync à {new Date(lastGarminEntry.device_last_sync).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-gray-700/50 rounded-xl p-2">
                 <div className="text-xs text-gray-400 mb-0.5">BMR</div>

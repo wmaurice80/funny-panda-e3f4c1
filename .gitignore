@@ -2,3 +2,4 @@
 .env.local
 node_modules/
 dist/
+garmin_sync/__pycache__/

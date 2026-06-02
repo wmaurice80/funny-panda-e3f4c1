@@ -117,6 +117,7 @@ serve(async (req) => {
               active_kcal: summary.activeKcal,
               bmr_kcal: summary.bmrKcal,
               steps: summary.steps ?? 0,
+              device_last_sync: summary.deviceLastSync ?? null,
               synced_at: new Date().toISOString(),
             },
             { onConflict: "user_id,date" }
