@@ -477,14 +477,18 @@ export default function Dashboard() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
-  // Rafraîchir l'encart Garmin après un sync manuel depuis Intégrations
+  // Rafraîchir toutes les valeurs après un sync Garmin (depuis Intégrations ou le bouton accueil)
   useEffect(() => {
     const onGarminSynced = async () => {
-      const garminRows = await getAllGarminDaily();
+      const [garminRows, acts] = await Promise.all([
+        getAllGarminDaily(),
+        getActivitiesForDate(todayISO()),
+      ]);
       if (garminRows?.length) {
         const sorted = [...garminRows].sort((a, b) => b.date.localeCompare(a.date));
         setLastGarminEntry(sorted[0]);
       }
+      setTotalSport(acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
     };
     window.addEventListener('garmin-synced', onGarminSynced);
     return () => window.removeEventListener('garmin-synced', onGarminSynced);
