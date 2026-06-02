@@ -17,8 +17,6 @@ import MealCard from '../components/MealCard';
 import CameraCapture from '../components/CameraCapture';
 import { useAuth } from '../lib/AuthContext';
 
-const PHOTO_ALLOWED_EMAIL = 'wmaurice.peroumal@gmail.com';
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -110,7 +108,7 @@ export default function Repas() {
   const galleryInputRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canUsePhoto = user?.email === PHOTO_ALLOWED_EMAIL;
+
 
   // États catégorie + date/heure
   const [categorie, setCategorie] = useState(defaultCategorie);
@@ -325,7 +323,7 @@ export default function Repas() {
         {/* ── Zone analyse ─────────────────────────────────────────────────── */}
 
         {/* Compteur quota IA */}
-        {canUsePhoto && aiUsageCount !== null && (
+        {aiUsageCount !== null && (
           <div className={`flex items-center justify-end gap-1.5 text-xs font-medium
             ${quotaAlerte ? 'text-red-400' : 'text-gray-500'}`}>
             <span>Analyses IA ce mois :</span>
@@ -342,18 +340,15 @@ export default function Repas() {
         {!analysing && !analyseResult && (
           <>
             {/* Input galerie — masqué si non autorisé */}
-            {canUsePhoto && (
-              <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            )}
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
 
-            {canUsePhoto ? (
-              quotaAtteint ? (
+            {quotaAtteint ? (
                 /* Quota atteint — bouton désactivé */
                 <div className="flex flex-col items-center justify-center gap-3 w-full py-10
                                 rounded-3xl bg-[#1a1a2e] border border-red-800/50 text-center px-6">
@@ -364,39 +359,30 @@ export default function Repas() {
                     Reviens le mois prochain.
                   </span>
                 </div>
-              ) : (
-                /* Bouton caméra principal — réservé à wmaurice */
-                <button
-                  type="button"
-                  onClick={() => setShowCamera(true)}
-                  className="flex flex-col items-center justify-center gap-3 w-full py-10
-                             rounded-3xl
-                             bg-gradient-to-br from-violet-700 to-indigo-600
-                             shadow-xl shadow-violet-900/40
-                             hover:opacity-90 active:scale-95 transition-all duration-200"
-                >
-                  <span className="text-5xl">📸</span>
-                  <span className="text-white font-semibold text-base tracking-wide">
-                    Photographier un repas
-                  </span>
-                  <span className="text-violet-200 text-xs">
-                    L'IA analysera les calories et protéines
-                  </span>
-                </button>
-              )
             ) : (
-              /* Bannière pour les autres utilisateurs */
-              <div className="flex flex-col items-center justify-center gap-2 w-full py-8
-                              rounded-3xl border border-white/10 bg-[#1a1a2e] text-center px-6">
-                <span className="text-4xl">🔒</span>
-                <span className="text-gray-300 font-semibold text-sm">Analyse photo — Bientôt disponible</span>
-                <span className="text-gray-500 text-xs">Utilise la saisie manuelle ou Open Food Facts</span>
-              </div>
+              /* Bouton caméra principal */
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="flex flex-col items-center justify-center gap-3 w-full py-10
+                           rounded-3xl
+                           bg-gradient-to-br from-violet-700 to-indigo-600
+                           shadow-xl shadow-violet-900/40
+                           hover:opacity-90 active:scale-95 transition-all duration-200"
+              >
+                <span className="text-5xl">📸</span>
+                <span className="text-white font-semibold text-base tracking-wide">
+                  Photographier un repas
+                </span>
+                <span className="text-violet-200 text-xs">
+                  L'IA analysera les calories et protéines
+                </span>
+              </button>
             )}
 
             {/* Boutons secondaires */}
             <div className="flex gap-2">
-              {canUsePhoto && !quotaAtteint && (
+              {!quotaAtteint && (
                 <button
                   type="button"
                   onClick={() => { if (galleryInputRef.current) { galleryInputRef.current.value = ''; galleryInputRef.current.click(); } }}
