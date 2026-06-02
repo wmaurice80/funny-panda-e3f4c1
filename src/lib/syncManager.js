@@ -9,7 +9,7 @@
 // Le mode offline reste entièrement fonctionnel : les erreurs Supabase sont
 // silencieusement ignorées (.catch(() => {})) et n'empêchent pas l'écriture locale.
 
-import { addMeal, deleteMeal, addActivity, deleteActivity, addWeight, deleteWeight, saveProfile, putGarminDaily } from '../db';
+import { addMeal, deleteMeal, addActivity, deleteActivity, addWeight, deleteWeight, saveProfile, putGarminDaily, getActivitiesForDate } from '../db';
 import {
   pushMeal,
   deleteMealRemote,
@@ -19,6 +19,7 @@ import {
   deleteWeightRemote,
   pushProfile,
   pullGarminDaily,
+  pullGarminActivitiesForDates,
 } from './supabaseDb';
 
 // ── Profil ────────────────────────────────────────────────────────────────────
@@ -83,5 +84,32 @@ export async function syncGarminDaily(userId) {
     await Promise.all(rows.map(row => putGarminDaily(row)));
   } catch (err) {
     console.warn('[syncManager] syncGarminDaily', err.message);
+  }
+}
+
+/**
+ * Tire les activités importées par Garmin depuis Supabase et les insère dans IndexedDB
+ * si elles n'existent pas encore localement (dédup par date + note).
+ * @param {string} userId
+ * @param {string[]} dates - dates syncées ['YYYY-MM-DD', ...]
+ */
+export async function syncGarminActivities(userId, dates) {
+  try {
+    const remoteActivities = await pullGarminActivitiesForDates(userId, dates);
+    const localByDate = {};
+    await Promise.all(dates.map(async (d) => {
+      localByDate[d] = await getActivitiesForDate(d);
+    }));
+    for (const remote of remoteActivities) {
+      const local = localByDate[remote.date] ?? [];
+      const exists = local.some(a => a.note === remote.note);
+      if (!exists) {
+        // strip id/remoteId pour laisser IndexedDB auto-incrémenter
+        const { id: _id, remoteId: _rid, ...data } = remote;
+        await addActivity(data);
+      }
+    }
+  } catch (err) {
+    console.warn('[syncManager] syncGarminActivities', err.message);
   }
 }

@@ -16,7 +16,7 @@ import {
   fetchDebugInfo,
 } from '../lib/googleFit';
 import { getActivitiesForDate } from '../db';
-import { syncedAddActivity, syncedAddWeight, syncGarminDaily } from '../lib/syncManager';
+import { syncedAddActivity, syncedAddWeight, syncGarminDaily, syncGarminActivities } from '../lib/syncManager';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 
@@ -179,10 +179,16 @@ export default function Integrations() {
       if (error) throw error
       if (!data.success) throw new Error(data.error ?? 'Erreur inconnue')
       setGarminResult(data.summary)
-      // Mettre à jour IndexedDB local puis notifier le Dashboard
       if (user?.id) {
-        await syncGarminDaily(user.id).catch(() => {})
-        window.dispatchEvent(new CustomEvent('garmin-synced'))
+        // Calcule les dates syncées (même logique que l'Edge Function : days=2, offset=0)
+        const syncedDates = Array.from({ length: 2 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          return d.toISOString().slice(0, 10);
+        });
+        await syncGarminDaily(user.id).catch(() => {});
+        await syncGarminActivities(user.id, syncedDates).catch(() => {});
+        window.dispatchEvent(new CustomEvent('garmin-synced'));
       }
     } catch (err) {
       setGarminError(err?.message ?? 'Erreur de synchronisation Garmin')

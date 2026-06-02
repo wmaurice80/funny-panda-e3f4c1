@@ -407,6 +407,22 @@ export async function pullAllWeights() {
 // ---------------------------------------------------------------------------
 
 /**
+ * Récupère les activités importées depuis Garmin pour une liste de dates.
+ * @param {string} userId
+ * @param {string[]} dates - ['YYYY-MM-DD', ...]
+ */
+export async function pullGarminActivitiesForDates(userId, dates) {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*')
+    .eq('user_id', userId)
+    .not('garmin_activity_id', 'is', null)
+    .in('date', dates)
+  if (error) throw error
+  return (data ?? []).map(formatActivity)
+}
+
+/**
  * Récupère les 90 derniers jours de données Garmin pour l'utilisateur connecté.
  * @param {string} userId - L'identifiant Supabase de l'utilisateur
  * @returns {Array} Tableau de { date, total_kcal, active_kcal, bmr_kcal, steps }, ou [] en cas d'erreur
