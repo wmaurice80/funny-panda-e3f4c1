@@ -200,7 +200,7 @@ export async function fetchActivities(date: string): Promise<GarminActivity[]> {
           (a?.activityType as Record<string, string> | undefined)?.typeKey ?? ""
 
         return {
-          garminActivityId: Number(a?.activityId ?? 0),
+          garminActivityId: a?.activityId != null ? Number(a.activityId) : null,
           date: startTimeLocal.slice(0, 10),
           heure: startTimeLocal.slice(11, 16),
           type: mapActivityType(typeKey),
@@ -224,16 +224,21 @@ export async function fetchWeight(date: string): Promise<WeightRecord | null> {
       accessToken,
     ) as Record<string, unknown>
 
-    const summaries = data?.dailyWeightSummaries as Record<string, unknown>[] | undefined
+    // Garmin retourne dateWeightList (principal) ou dailyWeightSummaries (ancien)
+    const list = (
+      (data?.dateWeightList as Record<string, unknown>[] | undefined) ??
+      (data?.dailyWeightSummaries as Record<string, unknown>[] | undefined)
+    )
+    const firstEntry = list?.[0]
     const weightGrams =
-      (summaries?.[0]?.weight as number | undefined) ??
+      (firstEntry?.weight as number | undefined) ??
       (data?.weight as number | undefined)
 
     if (!weightGrams || weightGrams === 0) return null
 
     const poidsKg = Math.round((Number(weightGrams) / 1000) * 10) / 10
     const bodyFat =
-      (summaries?.[0]?.bodyFat as number | undefined) ??
+      (firstEntry?.bodyFat as number | undefined) ??
       (data?.bodyFat as number | undefined)
 
     return {

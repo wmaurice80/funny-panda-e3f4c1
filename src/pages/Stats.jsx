@@ -64,6 +64,15 @@ export default function Stats() {
   const [loading, setLoading] = useState(true);
   const [noProfile, setNoProfile] = useState(false);
 
+  const loadGarminMap = useCallback(async () => {
+    const garminRows = await getAllGarminDaily();
+    const gMap = {};
+    for (const entry of garminRows) {
+      gMap[entry.date] = entry;
+    }
+    setGarminDailyMap(gMap);
+  }, []);
+
   // Charge le profil, calcule le TDEE et la cible + charge les données Garmin
   useEffect(() => {
     (async () => {
@@ -83,7 +92,6 @@ export default function Stats() {
       setCible(computedCible);
       setObjectif(profile.objectif ?? 'maintien');
       setProteinGoal(calculateProteinGoal(profile));
-      // Construire le map { 'YYYY-MM-DD': entry }
       const gMap = {};
       for (const entry of garminRows) {
         gMap[entry.date] = entry;
@@ -91,6 +99,12 @@ export default function Stats() {
       setGarminDailyMap(gMap);
     })();
   }, []);
+
+  // Rafraîchit le garminDailyMap après une sync manuelle depuis Intégrations
+  useEffect(() => {
+    window.addEventListener('garmin-synced', loadGarminMap);
+    return () => window.removeEventListener('garmin-synced', loadGarminMap);
+  }, [loadGarminMap]);
 
   // Réinitialise le navigateur journalier au jour le plus récent quand le mois change
   useEffect(() => { setSelectedDayIdx(0); }, [year, month]);

@@ -114,19 +114,21 @@ serve(async (req) => {
       const activities = await fetchActivities(date)
       for (const activity of activities) {
         try {
-          const { error } = await supabase.from("activities").upsert(
-            {
-              user_id: CALSNAP_USER_ID,
-              garmin_activity_id: activity.garminActivityId,
-              date: activity.date,
-              heure: activity.heure,
-              type: activity.type,
-              duree: activity.duree,
-              calories_brulees: activity.caloriesBrulees,
-              note: activity.note,
-            },
-            { onConflict: "user_id,garmin_activity_id" },
-          )
+          const payload = {
+            user_id: CALSNAP_USER_ID,
+            garmin_activity_id: activity.garminActivityId,
+            date: activity.date,
+            heure: activity.heure,
+            type: activity.type,
+            duree: activity.duree,
+            calories_brulees: activity.caloriesBrulees,
+            note: activity.note,
+          }
+          // UPSERT seulement si on a un garmin_activity_id — sinon INSERT simple
+          const op = activity.garminActivityId != null
+            ? supabase.from("activities").upsert(payload, { onConflict: "user_id,garmin_activity_id" })
+            : supabase.from("activities").insert(payload)
+          const { error } = await op
           if (!error) {
             report.activitiesOk++
           } else {

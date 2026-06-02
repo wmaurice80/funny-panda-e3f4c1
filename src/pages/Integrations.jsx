@@ -172,7 +172,7 @@ export default function Integrations() {
     setGarminError(null)
     try {
       const { data, error } = await supabase.functions.invoke('garmin-sync', {
-        body: { days: 1 }
+        body: { days: 2 }
       })
       if (error) throw error
       if (!data.success) throw new Error(data.error ?? 'Erreur inconnue')
