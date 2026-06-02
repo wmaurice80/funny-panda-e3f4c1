@@ -41,7 +41,6 @@ export default function Activites() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [formOpen, setFormOpen] = useState(true);
-  const [garminOpen, setGarminOpen] = useState(false);
   const [garminInput, setGarminInput] = useState('');
   const [activities, setActivities] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -343,67 +342,6 @@ export default function Activites() {
                 {saving ? 'Enregistrement…' : 'Enregistrer la session'}
               </button>
             </form>
-          )}
-        </div>
-
-        {/* ── Section Import Garmin (dépliable — intégration OAuth en attente) ── */}
-        <div className="bg-[#1a1a2e] rounded-2xl shadow-xl overflow-hidden">
-          <button
-            onClick={() => setGarminOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-4
-                       text-white font-semibold text-sm hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <span>🏃‍♂️</span>
-              <span>Importer depuis Garmin Connect</span>
-              <span className="text-[10px] font-medium bg-amber-500/15 text-amber-400
-                               border border-amber-500/30 px-2 py-0.5 rounded-full">
-                À venir
-              </span>
-            </div>
-            <svg
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round"
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${garminOpen ? 'rotate-180' : ''}`}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {garminOpen && (
-            <div className="px-5 pb-5 border-t border-white/10">
-              <p className="text-xs text-gray-500 mt-4 mb-3">
-                L'intégration OAuth Garmin est en attente d'approbation. En attendant, tu peux
-                copier manuellement les données depuis Garmin Connect.
-              </p>
-              <ol className="flex flex-col gap-2 mb-4">
-                {[
-                  'Ouvrez Garmin Connect sur mobile ou web',
-                  'Sélectionnez l\'activité souhaitée',
-                  'Notez le nom de l\'activité et les calories brûlées',
-                  'Collez ces infos dans le champ "Import rapide" du formulaire ci-dessus',
-                ].map((step, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-400
-                                     flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      {i + 1}
-                    </span>
-                    <span className="text-xs text-gray-400">{step}</span>
-                  </li>
-                ))}
-              </ol>
-              <a
-                href="https://connect.garmin.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl
-                           bg-[#22223b] border border-white/10 text-sm font-medium text-gray-300
-                           hover:bg-[#2a2a40] active:scale-95 transition-all duration-150"
-              >
-                <span>🌐</span>
-                Ouvrir Garmin Connect
-              </a>
-            </div>
           )}
         </div>
 

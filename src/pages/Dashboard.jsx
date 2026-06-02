@@ -5,7 +5,8 @@ import { useAuth } from '../lib/AuthContext';
 import { getProfile, getMealsForDate, getActivitiesForDate, getLatestWeight, getWeights, getAllGarminDaily } from '../db';
 import { calculateBMR, calculateCible, calculateProteinGoal, getEffectiveTDEE, ACTIVITY_LABELS } from '../utils/bmr';
 import { isConnected, hasRefreshToken, fetchAllDayData } from '../lib/googleFit';
-import { syncedDeleteActivity } from '../lib/syncManager';
+import { syncedDeleteActivity, syncGarminDaily, syncGarminActivities } from '../lib/syncManager';
+import { supabase } from '../lib/supabase';
 import GoogleFitCard from '../components/GoogleFitCard';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
@@ -373,6 +374,7 @@ export default function Dashboard() {
   const [gfitData, setGfitData] = useState(null);
   const [gfitLoading, setGfitLoading] = useState(false);
   const [lastGarminEntry, setLastGarminEntry] = useState(null);
+  const [garminSyncing, setGarminSyncing] = useState(false);
 
   const loadData = useCallback(async () => {
     const today = todayISO();
@@ -488,6 +490,29 @@ export default function Dashboard() {
     return () => window.removeEventListener('garmin-synced', onGarminSynced);
   }, []);
 
+  const handleGarminSync = async () => {
+    setGarminSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('garmin-sync', { body: { days: 2 } });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error ?? 'Erreur inconnue');
+      const syncedDates = Array.from({ length: 2 }, (_, i) => {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        return d.toISOString().slice(0, 10);
+      });
+      await syncGarminDaily(user?.id).catch(() => {});
+      await syncGarminActivities(user?.id, syncedDates).catch(() => {});
+      // Recharger les activités du jour → totalSport mis à jour
+      const acts = await getActivitiesForDate(todayISO());
+      setTotalSport(acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
+      window.dispatchEvent(new CustomEvent('garmin-synced'));
+    } catch {
+      // erreur silencieuse dans le Dashboard — l'utilisateur peut aller dans Intégrations pour le détail
+    } finally {
+      setGarminSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0f0f1a]">
@@ -599,7 +624,7 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* 4 — Garmin dernière mesure (informatif) */}
+        {/* 4 — Garmin dernière mesure + bouton sync */}
         {lastGarminEntry && (
           <div className="bg-gray-800/60 rounded-2xl p-4 border border-violet-800/30">
             <div className="flex items-center justify-between mb-3">
@@ -607,9 +632,25 @@ export default function Dashboard() {
                 <span className="text-lg">⌚</span>
                 <span className="text-sm font-semibold text-violet-300">Garmin mesuré</span>
               </div>
-              <span className="text-xs text-gray-500">
-                {new Date(lastGarminEntry.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">
+                  {new Date(lastGarminEntry.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </span>
+                <button
+                  onClick={handleGarminSync}
+                  disabled={garminSyncing}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg
+                             bg-violet-600/20 border border-violet-500/30 text-violet-400
+                             hover:bg-violet-600/40 active:scale-90 transition-all duration-150
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Synchroniser Garmin"
+                >
+                  {garminSyncing
+                    ? <span className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin block" />
+                    : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                  }
+                </button>
+              </div>
             </div>
             <div className="flex items-end gap-1 mb-3">
               <span className="text-2xl font-bold text-white">{lastGarminEntry.total_kcal.toLocaleString('fr-FR')}</span>
