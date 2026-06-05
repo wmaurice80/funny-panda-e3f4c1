@@ -30,7 +30,7 @@ function fmtNum(n) {
   return Math.round(n).toLocaleString('fr-FR');
 }
 
-export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif, onRefresh }) {
+export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif, tdeeSource, onRefresh }) {
   const navigate = useNavigate();
 
   // ── État vide ──────────────────────────────────────────────────────────────
@@ -89,10 +89,11 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
   // ── Données disponibles ────────────────────────────────────────────────────
   const { tdee, steps, heartRate, activities } = data;
 
-  // Écart TDEE Google Fit vs Garmin fixe
-  const gfitActive = tdee?.active ?? 0;
-  const tdeeFit = gfitActive > 0 ? gfitActive : 0;
-  const diff = tdeeGarmin > 0 && tdeeFit > 0 ? tdeeFit - tdeeGarmin : null;
+  // total = TDEE mesuré complet (calories.expended)
+  // active = portion active seule (hors BMR)
+  const tdeeFitTotal  = tdee?.total  ?? 0;
+  const tdeeFitActive = tdee?.active ?? 0;
+  const isUsedAsTDEE  = tdeeSource === 'gfit';
 
   // Max 3 activités
   const visibleActivities = Array.isArray(activities)
@@ -138,7 +139,7 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
         )}
       </div>
 
-      {/* ── Grille métriques : pas + cal détectées + FC ─────────────────────── */}
+      {/* ── Grille métriques ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         {/* Pas */}
         <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
@@ -152,16 +153,26 @@ export default function GoogleFitCard({ data, loading, tdeeGarmin, tdeeEffectif,
           <span className="text-xs text-gray-600">pas aujourd'hui</span>
         </div>
 
-        {/* Calories détectées (téléphone — info) */}
-        <div className="bg-[#22223b] rounded-xl p-3 flex flex-col gap-0.5">
+        {/* TDEE total GFit (ou cal. actives si total indisponible) */}
+        <div className={`rounded-xl p-3 flex flex-col gap-0.5 ${isUsedAsTDEE ? 'bg-violet-900/30 border border-violet-700/40' : 'bg-[#22223b]'}`}>
           <div className="flex items-center gap-1.5 mb-1">
             <span className="text-base">🔥</span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Cal. actives</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              {isUsedAsTDEE ? 'TDEE mesuré' : 'Cal. totales'}
+            </span>
           </div>
-          <span className="text-orange-400 text-xl font-extrabold leading-none">
-            {tdeeFit > 0 ? fmtNum(tdeeFit) : '—'}
+          <span className={`text-xl font-extrabold leading-none ${isUsedAsTDEE ? 'text-violet-300' : 'text-orange-400'}`}>
+            {tdeeFitTotal > 0 ? fmtNum(tdeeFitTotal) : '—'}
           </span>
-          <span className="text-xs text-gray-600">kcal détectées (info)</span>
+          <span className="text-xs text-gray-600">
+            {isUsedAsTDEE ? '✓ utilisé dans le bilan' : 'kcal détectées'}
+          </span>
+          {/* Décomposition BMR / actif si disponible */}
+          {tdeeFitActive > 0 && tdee?.bmr > 0 && (
+            <span className="text-[10px] text-gray-600 mt-0.5">
+              BMR {fmtNum(tdee.bmr)} + actif {fmtNum(tdeeFitActive)}
+            </span>
+          )}
         </div>
 
         {/* Fréquence cardiaque */}

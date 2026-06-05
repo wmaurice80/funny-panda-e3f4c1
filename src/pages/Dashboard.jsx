@@ -591,10 +591,26 @@ export default function Dashboard() {
   // TDEE de base (Garmin mesuré profil ou BMR×facteur) + sport manuel du jour
   const tdeeBase = profile.tdeeMesure > 0 ? profile.tdeeMesure : tdee;
   const tdeeManuel = tdeeBase + totalSport;
-  // Si Garmin a des données pour aujourd'hui et qu'elles dépassent le calcul manuel,
-  // on utilise la mesure Garmin (elle inclut déjà sport + base journalière réelle).
+
+  // Priorité : Garmin today > Google Fit > manuel
+  // Règle : si Garmin a une entrée aujourd'hui → logique Garmin inchangée, GFit ignoré
   const garminTodayKcal = todayGarminEntry?.total_kcal ?? 0;
-  const tdeeEffectif = garminTodayKcal > tdeeManuel ? garminTodayKcal : tdeeManuel;
+  const gfitTodayKcal   = gfitData?.tdee?.total ?? 0;
+
+  let tdeeEffectif, tdeeSource;
+  if (garminTodayKcal > 0) {
+    // Garmin présent → comportement identique à avant
+    tdeeEffectif = garminTodayKcal > tdeeManuel ? garminTodayKcal : tdeeManuel;
+    tdeeSource   = 'garmin';
+  } else if (gfitTodayKcal > tdeeManuel) {
+    // Pas de Garmin + GFit dépasse le calcul manuel → GFit devient la source
+    tdeeEffectif = gfitTodayKcal;
+    tdeeSource   = 'gfit';
+  } else {
+    tdeeEffectif = tdeeManuel;
+    tdeeSource   = 'manual';
+  }
+
   const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
   const proteinGoal = calculateProteinGoal(profile);
@@ -679,7 +695,13 @@ export default function Dashboard() {
             icon="⚡"
             color="text-violet-400"
             delay="120ms"
-            badge={totalSport > 0 ? '🏋️' : profile.tdeeMesure > 0 ? '⌚' : undefined}
+            badge={
+              tdeeSource === 'garmin' ? '⌚ Garmin'
+              : tdeeSource === 'gfit' ? '🏃 GFit'
+              : totalSport > 0 ? '🏋️'
+              : profile.tdeeMesure > 0 ? '⌚'
+              : undefined
+            }
             compact
           />
           <StatCard
@@ -692,6 +714,21 @@ export default function Dashboard() {
             compact
           />
         </div>
+
+        {/* Disclaimer GFit — affiché uniquement quand GFit est la source TDEE */}
+        {tdeeSource === 'gfit' && (
+          <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl px-4 py-3
+                          flex items-start gap-2 animate-fade-in-up">
+            <span className="text-amber-400 text-base mt-0.5">⚠</span>
+            <div>
+              <p className="text-xs font-semibold text-amber-300">TDEE estimé via Google Fit</p>
+              <p className="text-xs text-amber-500/80 mt-0.5">
+                Précision variable selon votre montre connectée. Connectez une montre Fitbit,
+                Samsung ou Wear OS pour de meilleures mesures.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 4 — Garmin dernière mesure + bouton sync */}
         {lastGarminEntry && (
@@ -757,6 +794,7 @@ export default function Dashboard() {
             loading={gfitLoading}
             tdeeGarmin={tdee}
             tdeeEffectif={tdeeEffectif}
+            tdeeSource={tdeeSource}
             onRefresh={() => {
               setGfitLoading(true);
               fetchAllDayData(todayISO())

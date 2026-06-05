@@ -407,20 +407,21 @@ export async function fetchDailyTDEE(dateISO) {
       return Math.round(total)
     }
 
-    const [active, bmr] = await Promise.all([
-      queryOne('com.google.calories.expended'),
-      queryOne('com.google.calories.bmr'),
+    const [expended, bmr] = await Promise.all([
+      queryOne('com.google.calories.expended'), // total (BMR inclus)
+      queryOne('com.google.calories.bmr'),       // BMR seul
     ])
 
-    if (active === 0 && bmr === 0) return null
+    if (expended === 0 && bmr === 0) return null
 
-    const bmrRounded = bmr
-    const activeRounded = active
-    // Si BMR Google Fit = 0, le Dashboard utilisera le BMR du profil comme base
+    // calories.expended = TDEE total mesuré (BMR + actif)
+    // active = partie vraiment active = expended − bmr (0 si bmr inconnu)
+    const trueActive = bmr > 0 ? Math.max(0, expended - bmr) : expended
     return {
-      tdee: bmrRounded + activeRounded,
-      bmr: bmrRounded,
-      active: activeRounded,
+      total:  expended,    // TDEE total à utiliser dans les calculs
+      tdee:   expended,    // alias rétrocompat
+      bmr,
+      active: trueActive,  // calories actives seules (hors BMR)
     }
   } catch (err) {
     console.warn('[googleFit] fetchDailyTDEE :', err)
