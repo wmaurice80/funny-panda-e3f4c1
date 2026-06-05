@@ -3,3 +3,13 @@
 node_modules/
 dist/
 garmin_sync/__pycache__/
+
+# Capacitor Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/app/debug/
+android/captures/
+android/.idea/
+android/local.properties
