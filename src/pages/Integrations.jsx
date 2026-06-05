@@ -4,7 +4,7 @@
 // US-F03 : Sync poids depuis Google Fit
 // US-F04 : Déconnecter Google Fit
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   isConnected,
@@ -55,6 +55,116 @@ function Spinner() {
 }
 
 const GARMIN_OWNER_EMAIL = 'wmaurice.peroumal@gmail.com';
+
+/** Section d'aide dépliable pour Google Fit */
+function GoogleFitHelp() {
+  const [open, setOpen] = useState(false);
+  const bodyRef = useRef(null);
+
+  return (
+    <div className="border border-white/10 rounded-xl overflow-hidden">
+      {/* Toggle */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3
+                   bg-[#0f0f1a] text-left hover:bg-[#1a1a2e] transition-colors"
+      >
+        <span className="text-xs font-semibold text-gray-400 flex items-center gap-2">
+          <span>❓</span> Comment ça marche ?
+        </span>
+        <svg
+          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Corps */}
+      {open && (
+        <div ref={bodyRef} className="bg-[#0f0f1a] px-4 pb-4 flex flex-col gap-4 border-t border-white/10">
+
+          {/* Étapes */}
+          <div className="flex flex-col gap-3 pt-3">
+            {[
+              {
+                n: '1',
+                icon: '📱',
+                title: 'Installer Google Fit',
+                desc: 'Télécharge l\'app Google Fit depuis le Play Store sur ton Android.',
+              },
+              {
+                n: '2',
+                icon: '⌚',
+                title: 'Connecter ta montre ou ton tracker',
+                desc: 'Dans Google Fit, associe ta montre connectée (Fitbit, Samsung Health, Wear OS, Polar…). C\'est elle qui fournit les calories mesurées.',
+              },
+              {
+                n: '3',
+                icon: '🔗',
+                title: 'Connecter Google Fit à CalSnap',
+                desc: 'Clique sur "Connecter Google Fit" ci-dessus et autorise l\'accès aux activités et au poids.',
+              },
+              {
+                n: '4',
+                icon: '🔄',
+                title: 'Synchroniser',
+                desc: 'Reviens ici et clique "Synchroniser" pour importer activités et poids. Répète après chaque séance.',
+              },
+            ].map(step => (
+              <div key={step.n} className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-violet-700/50 border border-violet-600/40
+                                flex items-center justify-center text-[11px] font-bold text-violet-300 flex-shrink-0 mt-0.5">
+                  {step.n}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                    <span>{step.icon}</span> {step.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Rôle dans CalSnap */}
+          <div className="bg-violet-900/20 border border-violet-700/30 rounded-xl px-3 py-2.5">
+            <p className="text-xs font-semibold text-violet-300 mb-1">⚡ Rôle dans le bilan</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Si Google Fit mesure une dépense supérieure à ton TDEE de profil,
+              CalSnap l'utilise automatiquement dans le bilan du jour — comme
+              le fait Garmin. Un badge <span className="text-violet-300 font-semibold">🏃 GFit</span> apparaît
+              sur la carte TDEE.
+            </p>
+          </div>
+
+          {/* Montres compatibles */}
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-xl px-3 py-2.5">
+            <p className="text-xs font-semibold text-gray-400 mb-2">🎯 Précision selon la source</p>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { label: 'Fitbit, Polar, Suunto',       quality: '★★★★★', color: 'text-emerald-400' },
+                { label: 'Wear OS / Google Pixel Watch', quality: '★★★★☆', color: 'text-emerald-400' },
+                { label: 'Samsung (via S Health)',       quality: '★★★☆☆', color: 'text-yellow-400'  },
+                { label: 'Téléphone seul (capteurs)',    quality: '★★☆☆☆', color: 'text-orange-400'  },
+                { label: 'Garmin',                       quality: '✗ calories non dispo', color: 'text-red-400' },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">{row.label}</span>
+                  <span className={`font-semibold ${row.color}`}>{row.quality}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-600 mt-2">
+              * Garmin ne synchronise pas les calories vers Google Fit — utilise la carte Garmin dédiée ci-dessous.
+            </p>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Integrations() {
   const navigate = useNavigate();
@@ -341,6 +451,9 @@ export default function Integrations() {
                 </div>
               )}
 
+              {/* Aide — toujours accessible même quand connecté */}
+              <GoogleFitHelp />
+
               {/* Debug — données brutes Google Fit */}
               <button
                 onClick={async () => {
@@ -380,8 +493,8 @@ export default function Integrations() {
             /* ── Non connecté ── */
             <div className="flex flex-col gap-3">
               <p className="text-sm text-gray-400 leading-relaxed">
-                Connectez Google Fit pour importer automatiquement vos activités
-                et votre poids dans CalSnap.
+                Connectez Google Fit pour importer activités et poids,
+                et améliorer la précision de votre TDEE.
               </p>
               <button
                 onClick={initiateGoogleAuth}
@@ -394,6 +507,7 @@ export default function Integrations() {
                 <span>🔗</span>
                 Connecter Google Fit
               </button>
+              <GoogleFitHelp />
             </div>
           )}
         </div>
