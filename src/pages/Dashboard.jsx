@@ -375,6 +375,7 @@ export default function Dashboard() {
   const [gfitData, setGfitData] = useState(null);
   const [gfitLoading, setGfitLoading] = useState(false);
   const [lastGarminEntry, setLastGarminEntry] = useState(null);
+  const [todayGarminEntry, setTodayGarminEntry] = useState(null);
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [garminSyncOk, setGarminSyncOk] = useState(null); // true | false | null
 
@@ -401,11 +402,12 @@ export default function Dashboard() {
     setTotalProteinesJour(meals.reduce((sum, m) => sum + (m.totalProteines ?? 0), 0));
     setLatestWeight(lw ?? null);
 
-    // Dernière entrée Garmin (triée par date desc)
+    // Dernière entrée Garmin (triée par date desc) + entrée du jour
     if (garminRows?.length) {
       const sorted = [...garminRows].sort((a, b) => b.date.localeCompare(a.date));
       setLastGarminEntry(sorted[0]);
     }
+    setTodayGarminEntry(garminRows?.find(g => g.date === today) ?? null);
 
     // Calcul évolution 30 jours
     const thirtyDaysAgo = new Date();
@@ -454,16 +456,18 @@ export default function Dashboard() {
   useEffect(() => {
     const onFocus = async () => {
       const today = todayISO();
-      const [meals, acts, lw, allWeights] = await Promise.all([
+      const [meals, acts, lw, allWeights, garminRows] = await Promise.all([
         getMealsForDate(today),
         getActivitiesForDate(today),
         getLatestWeight(),
         getWeights(),
+        getAllGarminDaily(),
       ]);
       setCaloriesIngerees(meals.reduce((sum, m) => sum + (m.totalCalories ?? 0), 0));
       setTotalSport(acts.reduce((sum, a) => sum + (a.caloriesBrulees ?? 0), 0));
       setTotalProteinesJour(meals.reduce((sum, m) => sum + (m.totalProteines ?? 0), 0));
       setLatestWeight(lw ?? null);
+      setTodayGarminEntry(garminRows?.find(g => g.date === today) ?? null);
 
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -482,14 +486,16 @@ export default function Dashboard() {
   // Rafraîchir toutes les valeurs après un sync Garmin (depuis Intégrations ou le bouton accueil)
   useEffect(() => {
     const onGarminSynced = async () => {
+      const today = todayISO();
       const [garminRows, acts] = await Promise.all([
         getAllGarminDaily(),
-        getActivitiesForDate(todayISO()),
+        getActivitiesForDate(today),
       ]);
       if (garminRows?.length) {
         const sorted = [...garminRows].sort((a, b) => b.date.localeCompare(a.date));
         setLastGarminEntry(sorted[0]);
       }
+      setTodayGarminEntry(garminRows?.find(g => g.date === today) ?? null);
       setTotalSport(acts.reduce((s, a) => s + (a.caloriesBrulees ?? 0), 0));
     };
     window.addEventListener('garmin-synced', onGarminSynced);
@@ -582,9 +588,13 @@ export default function Dashboard() {
   const bmr = Math.round(calculateBMR(profile));
   const tdee = getEffectiveTDEE(profile, bmr);
 
-  // TDEE = base Garmin (tdeeMesure ou BMR×facteur) + activités manuelles du jour
+  // TDEE de base (Garmin mesuré profil ou BMR×facteur) + sport manuel du jour
   const tdeeBase = profile.tdeeMesure > 0 ? profile.tdeeMesure : tdee;
-  const tdeeEffectif = tdeeBase + totalSport;
+  const tdeeManuel = tdeeBase + totalSport;
+  // Si Garmin a des données pour aujourd'hui et qu'elles dépassent le calcul manuel,
+  // on utilise la mesure Garmin (elle inclut déjà sport + base journalière réelle).
+  const garminTodayKcal = todayGarminEntry?.total_kcal ?? 0;
+  const tdeeEffectif = garminTodayKcal > tdeeManuel ? garminTodayKcal : tdeeManuel;
   const cible = calculateCible(tdeeEffectif, profile.objectif, profile.vitesseObjectif);
   const objectif = profile.objectif ?? 'maintien';
   const proteinGoal = calculateProteinGoal(profile);
