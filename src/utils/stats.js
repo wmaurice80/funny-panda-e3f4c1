@@ -22,8 +22,8 @@ function daysInMonth(year, month) {
  * Chaque entrée : { day, date, ingested, proteines, burned, isSportDay }
  *
  * Règle burned :
- *  - Jour en cours : tdee + sport (TDEE mesuré fixe + activités du jour)
- *  - Jours passés  : garminDailyMap[date].total_kcal si disponible, sinon tdee + sport
+ *  - Garmin > tdee+sport : garmin gagne (peu importe passé ou aujourd'hui) — même logique que le Dashboard
+ *  - Sinon             : tdee + sport
  *  - Jours futurs vides : 0
  *
  * @param {number} year
@@ -50,8 +50,8 @@ export async function getMonthlyData(year, month, tdee, garminDailyMap = {}) {
       const garminEntry = garminDailyMap?.[date];
       const burned = (isFuture && ingested === 0)
         ? 0
-        : (date < today && garminEntry)
-          ? garminEntry.total_kcal
+        : garminEntry && garminEntry.total_kcal > (tdee + sport)
+          ? garminEntry.total_kcal   // Garmin gagne si supérieur (peu importe passé ou aujourd'hui)
           : tdee + sport;
       return { day, date, ingested, proteines, burned, isSportDay, garminEntry: garminEntry ?? null };
     });

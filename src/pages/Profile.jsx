@@ -3,14 +3,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../db';
 import { syncedSaveProfile } from '../lib/syncManager';
-import { ACTIVITY_LABELS, ACTIVITY_FACTORS, calculateBMR, calculateTDEE, calculateProteinGoal } from '../utils/bmr';
+import { ACTIVITY_LABELS, ACTIVITY_FACTORS, calculateBMR, calculateTDEE, calculateProteinGoal, getAge } from '../utils/bmr';
 import { useAuth } from '../lib/AuthContext';
 
 const INITIAL = {
   prenom: '',
   poids: '',
   taille: '170',
-  age: '30',
+  dateNaissance: '',
   sexe: 'homme',
   niveauActivite: 'modere',
   objectif: 'maintien',
@@ -60,6 +60,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [form, setForm] = useState(INITIAL);
+  const [profile, setProfile] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -70,19 +71,20 @@ export default function Profile() {
   const [welcomeMessage, setWelcomeMessage] = useState('');
 
   useEffect(() => {
-    getProfile().then((profile) => {
-      if (profile) {
+    getProfile().then((loadedProfile) => {
+      setProfile(loadedProfile);
+      if (loadedProfile) {
         const loadedForm = {
-          prenom: profile.prenom ?? '',
-          poids: String(profile.poids ?? ''),
-          taille: String(profile.taille ?? ''),
-          age: String(profile.age ?? ''),
-          sexe: profile.sexe ?? 'homme',
-          niveauActivite: profile.niveauActivite ?? 'modere',
-          objectif: profile.objectif ?? 'maintien',
-          vitesseObjectif: profile.vitesseObjectif ?? 'moderee',
-          tdeeMesure: profile.tdeeMesure ? String(profile.tdeeMesure) : '',
-          masseGrasse: profile.masseGrasse ? String(profile.masseGrasse) : '',
+          prenom: loadedProfile.prenom ?? '',
+          poids: String(loadedProfile.poids ?? ''),
+          taille: String(loadedProfile.taille ?? ''),
+          dateNaissance: loadedProfile.dateNaissance ?? '',
+          sexe: loadedProfile.sexe ?? 'homme',
+          niveauActivite: loadedProfile.niveauActivite ?? 'modere',
+          objectif: loadedProfile.objectif ?? 'maintien',
+          vitesseObjectif: loadedProfile.vitesseObjectif ?? 'moderee',
+          tdeeMesure: loadedProfile.tdeeMesure ? String(loadedProfile.tdeeMesure) : '',
+          masseGrasse: loadedProfile.masseGrasse ? String(loadedProfile.masseGrasse) : '',
         };
         setIsEdit(true);
         setForm(loadedForm);
@@ -106,9 +108,13 @@ export default function Profile() {
     const taille = Number(form.taille);
     if (!form.taille || isNaN(taille) || taille < 50 || taille > 250)
       e.taille = 'Taille invalide (50 – 250 cm).';
-    const age = Number(form.age);
-    if (!form.age || isNaN(age) || age < 10 || age > 120)
-      e.age = 'Âge invalide (10 – 120 ans).';
+    if (!form.dateNaissance && !profile?.age) {
+      e.dateNaissance = 'La date de naissance est requise.';
+    } else if (form.dateNaissance) {
+      const calculatedAge = getAge({ dateNaissance: form.dateNaissance });
+      if (calculatedAge < 10 || calculatedAge > 120)
+        e.dateNaissance = 'Âge invalide (10 – 120 ans).';
+    }
     if (!['homme', 'femme'].includes(form.sexe)) e.sexe = 'Sexe invalide.';
     if (!ACTIVITY_KEYS.includes(form.niveauActivite))
       e.niveauActivite = 'Niveau d\'activité invalide.';
@@ -124,7 +130,7 @@ export default function Profile() {
       prenom: form.prenom.trim(),
       poids: Number(form.poids),
       taille: Number(form.taille),
-      age: Number(form.age),
+      dateNaissance: form.dateNaissance || null,
       sexe: form.sexe,
       niveauActivite: form.niveauActivite,
       objectif: form.objectif,
@@ -357,17 +363,24 @@ export default function Profile() {
           })()}
         </div>
 
-        {/* Âge */}
-        <Field label="Âge" error={errors.age}>
+        {/* Date de naissance */}
+        <Field
+          label={`Date de naissance${
+            form.dateNaissance
+              ? ` — ${getAge({ dateNaissance: form.dateNaissance })} ans`
+              : profile?.age
+              ? ` — ${profile.age} ans (à mettre à jour)`
+              : ''
+          }`}
+          error={errors.dateNaissance}
+        >
           <input
+            type="date"
             className={inputClass}
-            type="number"
-            inputMode="numeric"
-            placeholder="30"
-            min="10"
-            max="120"
-            value={form.age}
-            onChange={set('age')}
+            value={form.dateNaissance}
+            onChange={set('dateNaissance')}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 10)).toISOString().slice(0, 10)}
+            min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().slice(0, 10)}
           />
         </Field>
 
@@ -408,10 +421,10 @@ export default function Profile() {
                 {form.niveauActivite === key && (() => {
                   const p = Number(form.poids);
                   const t = Number(form.taille);
-                  const a = Number(form.age);
+                  const a = getAge({ dateNaissance: form.dateNaissance });
                   const hasData = p > 0 && t > 0 && a > 0;
                   const tdeeEstime = hasData
-                    ? Math.round(calculateTDEE(calculateBMR({ poids: p, taille: t, age: a, sexe: form.sexe }), key))
+                    ? Math.round(calculateTDEE(calculateBMR({ poids: p, taille: t, dateNaissance: form.dateNaissance, sexe: form.sexe }), key))
                     : null;
                   return (
                     <p className="text-xs text-gray-400 italic px-1">

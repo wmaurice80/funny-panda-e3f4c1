@@ -53,11 +53,30 @@ export const ACTIVITY_LABELS = {
 };
 
 /**
+ * Calcule l'âge à partir de la date de naissance ou retourne profile.age comme fallback.
+ * @param {{ dateNaissance?: string, age?: number }} profile
+ * @returns {number}
+ */
+export function getAge(profile) {
+  if (profile.dateNaissance) {
+    const today = new Date();
+    const birth = new Date(profile.dateNaissance);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return Math.max(0, age);
+  }
+  return profile.age ?? 30;
+}
+
+/**
  * Calcule le BMR selon la formule Mifflin-St Jeor
- * @param {{ poids: number, taille: number, age: number, sexe: 'homme'|'femme' }} profile
+ * @param {{ poids: number, taille: number, dateNaissance?: string, age?: number, sexe: 'homme'|'femme' }} profile
  * @returns {number} BMR en kcal/jour
  */
-export function calculateBMR({ poids, taille, age, sexe }) {
+export function calculateBMR(profile) {
+  const { poids, taille, sexe } = profile;
+  const age = getAge(profile);
   const base = 10 * poids + 6.25 * taille - 5 * age;
   return sexe === 'homme' ? base + 5 : base - 161;
 }
