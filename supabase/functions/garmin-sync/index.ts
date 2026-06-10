@@ -15,10 +15,22 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const CALSNAP_USER_ID = Deno.env.get("CALSNAP_USER_ID")!
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://calsnapwmp.netlify.app",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+const ALLOWED_ORIGINS = [
+  "https://calsnapwmp.netlify.app",
+  "https://localhost",
+  "http://localhost",
+  "capacitor://localhost",
+]
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? ""
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : "https://calsnapwmp.netlify.app"
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  }
 }
 
 // offset=0 → aujourd'hui inclus, offset=1 → hier inclus (pour cron post-minuit)
@@ -37,6 +49,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }

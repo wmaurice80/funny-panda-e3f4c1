@@ -1,5 +1,5 @@
 # CalSnap — Contexte projet (Claude)
-> Dernière mise à jour : 26 mai 2026 (session 3)
+> Dernière mise à jour : 10 juin 2026 (session 5)
 
 ## Vision produit
 Application mobile PWA de suivi calorique et protéique par photo de repas et saisie manuelle, avec synchronisation cloud Supabase et intégration Google Fit / Garmin.
@@ -14,15 +14,15 @@ Application mobile PWA de suivi calorique et protéique par photo de repas et sa
 | Framework | React 18 + Vite |
 | Style | Tailwind CSS |
 | Routing | React Router v6 |
-| Stockage local | IndexedDB via `idb` (DB_VERSION : 5) |
+| Stockage local | IndexedDB via `idb` (DB_VERSION : 6) |
 | Stockage cloud | Supabase (PostgreSQL) |
 | Auth | Supabase Auth (email/password, confirmation email désactivée) |
 | Graphiques | Recharts |
 | IA analyse photo | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 | IA estimation texte | Claude Haiku 4.5 |
 | Base alimentaire | Open Food Facts API (gratuite) |
-| Intégration santé | Google Fit OAuth PKCE (info seulement — pas, FC) |
-| Type | PWA installable Android |
+| Intégration santé | Garmin (Edge Function OAuth, TDEE réel) + Google Fit OAuth PKCE (fallback TDEE ou info) |
+| Type | PWA installable Android + APK natif Capacitor |
 | Hébergement | Netlify — https://calsnapwmp.netlify.app |
 | Repo GitHub | https://github.com/wmaurice80/funny-panda-e3f4c1 |
 
@@ -184,11 +184,13 @@ Tendances hebdo : labels "1–7 mai", "8–14 mai"… (plus de S1/S2/S3)
 ## Bugs connus / décisions techniques
 - **Caméra Android** : `capture="environment"` bugué → utilise `getUserMedia` (CameraCapture.jsx)
 - **Garmin calories** : non disponibles via Google Fit — définitivement confirmé
-- **Google Fit TDEE** : abandonné comme source de calcul (données téléphone trop imprécises)
+- **Google Fit TDEE** : utilisé comme fallback si pas de Garmin today (disclaimer ambre affiché)
 - **tdeeMesure critique** : doit être renseigné dans le profil (2 750) — si 0, fallback BMR×facteur
 - **Stats bilan** : ne compte que les jours avec repas saisis (évite gonflement totalBurned)
-- **Garmin API** : approbation en attente — intégration OAuth Garmin prévue dès réponse
+- **APK — Google Fit OAuth** : origin `https://localhost` non autorisée par Google → Phase 3 (URL scheme custom)
+- **APK — clé Anthropic exposée** : `VITE_ANTHROPIC_API_KEY` dans le bundle APK → Phase 4 (proxy Edge Function)
 - **tdee_sport** : colonne présente en Supabase mais plus utilisée en UI (toggle abandonné)
+- **Date de naissance Supabase** : colonne `date_naissance` à créer si pas encore présente (`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS date_naissance date`)
 
 ## Variables Netlify à maintenir
 ```
@@ -204,6 +206,11 @@ VITE_GOOGLE_CLIENT_SECRET=GOCSPX-pCjmtfqYua5M-...
 npm run dev -- --host   # dev local
 npm run build           # build prod
 git add -A && git commit -m "..." && git push  # deploy auto Netlify
+
+# APK Capacitor
+npm run build && npx cap sync android   # sync dist → Android
+# Puis Android Studio : Build → Build APK(s)
+# APK : android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
@@ -582,6 +589,89 @@ Le cron de 00h05 Paris enregistre le total définitif de la veille (journée com
 
 ---
 
+---
+
+## Résumé de session — 10 juin 2026
+
+### Objectifs
+- Garmin TDEE en temps réel (pas seulement dernier jour sync)
+- Google Fit comme source TDEE de fallback pour APK sans Garmin
+- Guide aide Google Fit dans Intégrations
+- APK Android via Capacitor (Phase 0 — build + tests)
+- Fix Stats : cible = même logique que Dashboard TDEE
+- Fix Profil : âge dynamique depuis date de naissance
+- Fix APK : CORS Garmin sync, permissions caméra
+
+### Livraisons
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `Dashboard.jsx` | TDEE priorité : Garmin aujourd'hui > Google Fit > tdeeMesure+sport. `todayGarminEntry` state séparé (date = today). Badge `⌚ Garmin` / `🏃 GFit` / `🏋️`. |
+| 2 | `googleFit.js` | Fix double-BMR : `total = expended` (BMR inclus), `active = expended - bmr` — plus de double-compte |
+| 3 | `GoogleFitCard.jsx` | Prop `tdeeSource` → tuile violet + "✓ utilisé dans le bilan" si `gfit` actif. Décomposition BMR/actif. |
+| 4 | `Integrations.jsx` | Accordéon `GoogleFitHelp` : 4 étapes setup, rôle TDEE, tableau précision par type d'appareil |
+| 5 | `utils/stats.js` | `burned` : utilise Garmin dès qu'il dépasse tdee+sport (aujourd'hui inclus, plus seulement jours passés) |
+| 6 | `utils/bmr.js` | Export `getAge(profile)` : calcul dynamique depuis `dateNaissance`, fallback `profile.age ?? 30`. `calculateBMR` accepte full profile. |
+| 7 | `Profile.jsx` | Champ date de naissance (remplace âge statique). Label "X ans". Validation tolère legacy sans `dateNaissance`. |
+| 8 | `supabaseDb.js` | `pushProfile`/`pullProfile` : `date_naissance` ↔ `dateNaissance`. Rétrocompat `age` préservée. |
+| 9 | `capacitor.config.ts` | Config Capacitor : appId `com.wmaurice.calsnap`, `androidScheme: 'https'` (WebView origin = `https://localhost`) |
+| 10 | `android/app/build.gradle` | Fix kotlin-stdlib duplicate class : force `1.8.22` sur jdk7/jdk8/stdlib via `resolutionStrategy` |
+| 11 | `android/AndroidManifest.xml` | Permissions : CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE (maxSdkVersion=32) |
+| 12 | `supabase/functions/garmin-sync/index.ts` | CORS dynamique : `ALLOWED_ORIGINS` = Netlify + `https://localhost` + `capacitor://localhost` — fix sync APK |
+| 13 | `package.json` | `@capacitor/cli@^8.4.0` + `@capacitor/android@^8.4.0` en devDeps. Scripts `cap:sync`, `cap:build`. |
+
+### Règle TDEE définitive (après cette session)
+```
+Garmin aujourd'hui (total_kcal > 0)  → TDEE = max(garmin, tdeeMesure+sport)
+Google Fit aujourd'hui (total > 0)   → TDEE = gfit total (fallback si pas Garmin)
+Sinon                                → TDEE = tdeeMesure + sport manuel
+```
+- Garmin présent → GFit ignoré pour le calcul (mais affiché dans GoogleFitCard)
+- GFit utilisé → disclaimer ambre affiché sur Dashboard
+
+### APK Capacitor — état phase 0 (✅ livré)
+- Build APK généré : `android/app/build/outputs/apk/debug/app-debug.apk`
+- Installé sur Android, testé :
+  - ✅ App charge, connexion OK
+  - ✅ Sync Garmin fonctionne (après fix CORS Edge Function + redéploiement manuel Dashboard)
+  - ✅ Camera accès OK (après ajout permissions AndroidManifest)
+  - ✅ Google Fit, IndexedDB, Supabase — fonctionnels
+- Branche : `feature/capacitor-android` — **merge main en cours de validation**
+
+### Bugs corrigés (APK)
+- **CORS Garmin sync** : Edge Function n'autorisait que Netlify → ajout `https://localhost` + `capacitor://localhost`
+- **Camera refusée** : AndroidManifest.xml manquait CAMERA + READ_MEDIA_IMAGES
+- **Kotlin stdlib duplicate** : `jdk7/jdk8 1.6.21` vs `stdlib 1.8.x` → force `1.8.22` via resolutionStrategy
+- **SDK Android path** : dossier `/Users/wmaurice/Library/Android/sdk` à créer manuellement avant setup
+
+### Branches actives
+| Branche | État | Description |
+|---|---|---|
+| `main` | ✅ stable | PWA + stats/profile fixes + CORS fix |
+| `feature/capacitor-android` | 🔄 validation | APK build + Capacitor config |
+
+### Prochaines phases APK (backlog)
+| Phase | Tickets | Description |
+|---|---|---|
+| Phase 3 | APK-11 à 15 | OAuth Custom URL Scheme Google Fit (origin `https://localhost` non autorisée par Google) |
+| Phase 4 | APK-16 à 18 | Proxy clé API Anthropic via Edge Function (clé exposée dans APK bundle) |
+| Phase 5 | APK-19 à 25 | Publication Play Store |
+
+### SQL appliqué cette session
+```sql
+-- Aucun nouveau SQL — colonne date_naissance ajoutée côté app uniquement (supabaseDb.js)
+-- (La colonne date_naissance dans profiles doit être créée si besoin)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS date_naissance date;
+```
+
+### Commandes Capacitor
+```bash
+npm run build && npx cap sync android   # sync dist → Android
+# Puis Android Studio : Build → Build Bundle(s)/APK(s) → Build APK(s)
+# APK : android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
@@ -593,9 +683,9 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
 ```
 
 ### PRIORITÉ HAUTE — court terme
-- [ ] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic
+- [x] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic ✅
 - [ ] **P1-02** Fallback Gemini Flash vision (quota gratuit généreux)
-- [ ] **P1-03** Setup Capacitor + build Android test
+- [x] **P1-03** Setup Capacitor + build Android test ✅ (feature/capacitor-android)
 
 ### PRIORITÉ MOYENNE — moyen terme
 - [ ] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia)
