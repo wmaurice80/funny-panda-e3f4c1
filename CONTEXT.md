@@ -1,5 +1,5 @@
 # CalSnap — Contexte projet (Claude)
-> Dernière mise à jour : 26 mai 2026 (session 3)
+> Dernière mise à jour : 2 juin 2026 (session 2)
 
 ## Vision produit
 Application mobile PWA de suivi calorique et protéique par photo de repas et saisie manuelle, avec synchronisation cloud Supabase et intégration Google Fit / Garmin.
@@ -582,6 +582,120 @@ Le cron de 00h05 Paris enregistre le total définitif de la veille (journée com
 
 ---
 
+## Résumé de session — 2 juin 2026 (session 2)
+
+### Objectifs
+Préparer l'app pour le partage à l'entourage (famille/amis) — rendre l'app autonome, protéger les coûts, améliorer l'onboarding.
+
+### Sprint entourage — features livrées
+
+| ID | Fichier(s) | Description |
+|---|---|---|
+| E-01 | `src/lib/claudeApi.js`, `src/lib/supabaseDb.js`, `src/pages/Repas.jsx`, `src/pages/Aliments.jsx` | Quota mensuel 100 analyses IA/user — compteur visible X/100, alerte rouge à 80, blocage à 100. `wmaurice.peroumal@gmail.com` est illimité. Table Supabase `ai_usage(user_id, month, count)` |
+| E-02 | `src/pages/Auth.jsx`, `src/App.jsx`, `src/pages/Profile.jsx`, `src/pages/Dashboard.jsx`, `src/pages/Repas.jsx` | Onboarding nouveaux users — Dashboard détecte profil vide (poids+prénom) et redirige /profil, bannière bienvenue si profil IDB vide, objectif par défaut 'maintien', TDEE Garmin labellisé "(optionnel — avancé)", empty state Repas encourageant |
+| E-03 | `src/hooks/useInstallPrompt.js`, `src/components/InstallBanner.jsx`, `src/pages/Install.jsx`, `src/pages/Dashboard.jsx`, `src/pages/Profile.jsx`, `src/App.jsx` | Guide installation PWA — bannière Android (prompt natif beforeinstallprompt) et iOS (instructions icône partager), dismissed 7j localStorage, page /install avec guide complet, lien dans Profile |
+| E-04 | `src/pages/Integrations.jsx` | Carte Garmin masquée pour l'entourage — badge "En attente d'approbation API" + message explicatif pour tous sauf `wmaurice.peroumal@gmail.com`. Évite erreurs et confusion |
+| E-05 | `src/pages/Auth.jsx`, `src/pages/ResetPassword.jsx`, `src/App.jsx`, `src/lib/AuthContext.jsx` | Reset mot de passe — lien "Mot de passe oublié ?" dans Auth + page /reset-password avec détection PASSWORD_RECOVERY, timeout 10s lien expiré, cleanup mémoire complet |
+
+### SQL appliqué dans Supabase
+```sql
+-- Table quota analyses IA (E-01)
+CREATE TABLE ai_usage (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  month text NOT NULL,
+  count integer DEFAULT 0,
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, month)
+);
+ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "user voit son usage" ON ai_usage FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "user update son usage" ON ai_usage FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+GRANT ALL ON public.ai_usage TO authenticated;
+```
+
+### Config Supabase appliquée
+- **Authentication → URL Configuration → Redirect URLs** : `https://calsnapwmp.netlify.app/reset-password` ajouté (E-05)
+
+### Git
+- Commits `d0da97d` → `190d0f0` pushés sur `main`
+- Netlify auto-déployé à chaque push
+
+### Règles métier ajoutées
+- `AI_QUOTA_LIMIT = 100` analyses/mois/user — reset le 1er de chaque mois (clé YYYY-MM)
+- `AI_QUOTA_WARNING_THRESHOLD = 80` — compteur passe en rouge
+- `UNLIMITED_USER_EMAIL = 'wmaurice.peroumal@gmail.com'` — bypass total quota ET Garmin owner
+- `GARMIN_OWNER_EMAIL = 'wmaurice.peroumal@gmail.com'` — seul user avec accès sync Garmin dans Intégrations
+
+### Réflexion stratégique (notes)
+- Objectif court terme : partage entourage (pas encore public)
+- Positionnement envisagé : "pratiquants sérieux avec montre connectée"
+- Garmin sync multi-user bloquée sans approbation Garmin Health API officielle (en attente)
+- Migration Capacitor Android planifiée (Phase 2 backlog) — PWA déjà installable en attendant
+- Modèle monétisation non encore défini
+
+---
+
+## Résumé de session — 10 juin 2026
+
+### Fonctionnalités & fixes livrés
+
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `Dashboard.jsx` | TDEE du jour = `max(garmin_daily_today.total_kcal, tdeeMesure + sport)` — Garmin today utilisé en temps réel comme le fait le navigateur Stats pour les jours passés |
+| 2 | `googleFit.js` | Fix bug double-BMR dans `fetchDailyTDEE` : `total = calories.expended` (plus `bmr + expended`) ; ajout champ `total` et vrai `active = expended − bmr` |
+| 3 | `Dashboard.jsx` | Priorité TDEE : Garmin today > Google Fit > manuel. GFit ignoré si Garmin présent |
+| 4 | `Dashboard.jsx` | Badge TDEE : `⌚ Garmin` / `🏃 GFit` / `🏋️` selon source active |
+| 5 | `Dashboard.jsx` | Disclaimer ambre quand tdeeSource === 'gfit' : "TDEE estimé via Google Fit — précision variable" |
+| 6 | `GoogleFitCard.jsx` | Affiche `total` (TDEE complet) au lieu de `active`, décomposition BMR/actif, badge violet "✓ utilisé dans le bilan" quand GFit est source |
+| 7 | `Integrations.jsx` | Section aide "❓ Comment ça marche ?" dépliable : 4 étapes, rôle TDEE, tableau précision par montre |
+| 8 | `utils/stats.js` | Fix cible Stats : même logique que Dashboard — Garmin gagne si > tdee+sport, peu importe passé ou aujourd'hui |
+| 9 | `utils/bmr.js` | Ajout `getAge(profile)` : calcule l'âge depuis `dateNaissance`, fallback sur `profile.age` |
+| 10 | `pages/Profile.jsx` | Champ "Date de naissance" remplace âge statique — label affiche âge calculé dynamiquement ; anciens users non bloqués si `age` legacy présent |
+| 11 | `supabaseDb.js` | push/pull `date_naissance` ↔ Supabase (rétrocompat : champ `age` conservé) |
+
+### Packaging APK Android — Phase 0 (branche `feature/capacitor-android`)
+
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `capacitor.config.ts` | Setup Capacitor : appId `com.wmaurice.calsnap`, webDir=dist, androidScheme=https |
+| 2 | `android/` | Projet Android natif généré (`npx cap add android`) |
+| 3 | `package.json` | Scripts `cap:sync`, `cap:open`, `cap:build` ; `@capacitor/core` 8.x en dep, cli/android en devDep |
+| 4 | `.nvmrc` | Node 22 requis par `@capacitor/cli` 8.x |
+| 5 | `android/app/build.gradle` | Fix Kotlin stdlib duplicate class (forcer 1.8.22 pour jdk7/jdk8) |
+| 6 | `android/app/src/main/AndroidManifest.xml` | Permissions `CAMERA`, `READ_MEDIA_IMAGES`, `READ_EXTERNAL_STORAGE` (maxSdk 32) |
+| 7 | `supabase/functions/garmin-sync/index.ts` | CORS dynamique : accepte `https://localhost` + `capacitor://localhost` (Capacitor WebView) en plus de Netlify |
+
+### SQL appliqué dans Supabase
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS date_naissance date;
+```
+
+### Branches Git
+- `fix/stats-cible-age-profile` → mergée sur `main` (commit `d6270a3`)
+- `feature/capacitor-android` → rebased sur main, en cours de test APK
+- APK debug testé sur téléphone : login ✅ · sync Garmin (après fix CORS) ✅ · caméra ✅
+
+### Architecture TDEE — règle définitive mise à jour
+```
+Priorité source TDEE (Dashboard + Stats) :
+  1. garmin_daily.total_kcal (aujourd'hui) — si présent et > tdeeMesure + sport
+  2. Google Fit calories.expended (aujourd'hui) — si GFit connecté et > tdeeMesure + sport
+  3. tdeeMesure + sport manuel — baseline profile
+  Garmin présent → GFit ignoré pour les calculs (mais affiché dans GoogleFitCard)
+```
+
+### Backlog APK — état
+| ID | Statut | Description |
+|---|---|---|
+| APK-01 à 07 | ✅ Phase 0 livrée | Setup Capacitor, build APK, permissions caméra |
+| APK-08/09/10 | 📋 Phase 2 | Plugin Camera natif (getUserMedia fonctionne en attendant) |
+| APK-11 à 15 | 📋 Phase 3 | OAuth Custom URL Scheme (Google Fit cassé dans APK) |
+| APK-16 à 18 | 📋 Phase 4 | Proxy Anthropic via Edge Function (sécurité clé API) |
+| APK-19 à 25 | 📋 Phase 5 | Publication Play Store |
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
@@ -593,12 +707,12 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
 ```
 
 ### PRIORITÉ HAUTE — court terme
-- [ ] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic
+- [x] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic ✅ livré 22 mai
 - [ ] **P1-02** Fallback Gemini Flash vision (quota gratuit généreux)
-- [ ] **P1-03** Setup Capacitor + build Android test
+- [x] **P1-03** Setup Capacitor + build Android test ✅ livré 10 juin
 
 ### PRIORITÉ MOYENNE — moyen terme
-- [ ] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia)
+- [ ] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia) — getUserMedia fonctionne pour l'instant
 - [ ] **P2-02** TensorFlow.js food-101 local (analyse offline)
 - [ ] **P2-03** Pipeline local → lookup Open Food Facts → macros
 - [ ] **P2-04** Build iOS + soumission TestFlight
