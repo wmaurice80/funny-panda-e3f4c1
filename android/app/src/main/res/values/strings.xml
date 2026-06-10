@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CalSnap</string>
+    <string name="title_activity_main">CalSnap</string>
+    <string name="package_name">com.wmaurice.calsnap</string>
+    <string name="custom_url_scheme">com.wmaurice.calsnap</string>
+</resources>
