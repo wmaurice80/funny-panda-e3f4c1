@@ -5,6 +5,7 @@ import { getProfile } from '../db';
 import { syncedSaveProfile } from '../lib/syncManager';
 import { ACTIVITY_LABELS, ACTIVITY_FACTORS, calculateBMR, calculateTDEE, calculateProteinGoal, getAge } from '../utils/bmr';
 import { useAuth } from '../lib/AuthContext';
+import { APP_VERSION } from '../components/MigrationAPK';
 
 const INITIAL = {
   prenom: '',
@@ -555,6 +556,11 @@ export default function Profile() {
           <span>📲</span>
           Comment installer l'app sur mon téléphone ?
         </button>
+      </div>
+
+      {/* Version */}
+      <div className="text-center pt-2 pb-6">
+        <span className="text-xs text-gray-600">CalSnap {APP_VERSION}</span>
       </div>
 
     </div>
