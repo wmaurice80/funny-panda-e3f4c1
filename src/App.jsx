@@ -2,6 +2,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext';
 import BottomNav from './components/BottomNav';
+import { MigrationWall, MigrationBanner, useMigration } from './components/MigrationAPK';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Repas from './pages/Repas';
@@ -37,6 +38,10 @@ export default function App() {
   const { user, loading, syncing } = useAuth();
   const { pathname } = useLocation();
   const showNav = !NO_NAV_ROUTES.includes(pathname);
+  const { showWall, showBanner } = useMigration();
+
+  // ── Mur de migration post-coupure (PWA uniquement) ────────────────────────
+  if (showWall) return <MigrationWall />;
 
   if (loading) return <Spinner />;
 
@@ -60,6 +65,8 @@ export default function App() {
 
   return (
     <>
+      {/* Bannière migration pré-coupure (PWA uniquement) */}
+      {showBanner && <MigrationBanner />}
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/profil" element={<Profile />} />
