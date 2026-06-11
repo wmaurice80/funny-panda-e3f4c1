@@ -1,10 +1,6 @@
 // src/pages/Repas.jsx
-//
-// ⚠️  SÉCURITÉ : L'appel à l'API Anthropic est effectué directement depuis le navigateur.
-// La clé VITE_ANTHROPIC_API_KEY est donc exposée dans le bundle JavaScript côté client.
-// Pour une application de production, il faudrait obligatoirement passer par un backend proxy
-// (ex. : une route /api/analyse-repas sur votre serveur) qui détient la clé en secret.
-// Pour un usage personnel / démo, cette approche est acceptable.
+// Les appels IA transitent via l'Edge Function Supabase `ai-proxy` (Phase 4).
+// Les clés ANTHROPIC_API_KEY et GEMINI_API_KEY sont côté serveur — jamais dans le bundle.
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
