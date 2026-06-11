@@ -2,7 +2,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext';
 import BottomNav from './components/BottomNav';
-import { MigrationWall, MigrationBanner, useMigration } from './components/MigrationAPK';
+import { MigrationWall, MigrationBanner, useMigration, useUpdateCheck, UpdateBanner } from './components/MigrationAPK';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Repas from './pages/Repas';
@@ -39,6 +39,7 @@ export default function App() {
   const { pathname } = useLocation();
   const showNav = !NO_NAV_ROUTES.includes(pathname);
   const { showWall, showBanner } = useMigration();
+  const updateVersion = useUpdateCheck();
 
   // ── Mur de migration post-coupure (PWA uniquement) ────────────────────────
   if (showWall) return <MigrationWall />;
@@ -65,6 +66,8 @@ export default function App() {
 
   return (
     <>
+      {/* Bannière mise à jour APK disponible (APK natif uniquement) */}
+      {updateVersion && <UpdateBanner version={updateVersion} />}
       {/* Bannière migration pré-coupure (PWA uniquement) */}
       {showBanner && <MigrationBanner />}
       <Routes>

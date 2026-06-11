@@ -4,9 +4,17 @@
 // Phase 1 (avant CUTOFF_DATE) : bannière collante avec countdown + lien téléchargement
 // Phase 2 (après CUTOFF_DATE) : mur complet — app inaccessible, seul le download reste
 //
-// Invisible sur l'APK natif (détection Capacitor.isNativePlatform).
+// UpdateBanner : vérifie la dernière release GitHub au démarrage de l'APK.
+//   Si une version plus récente existe → bandeau "Mise à jour disponible".
+//   Visible uniquement dans l'APK natif (pas dans la PWA).
 
 import { useState, useEffect } from 'react';
+
+// ── Version courante de l'APK ─────────────────────────────────────────────────
+// À mettre à jour avant chaque release (doit correspondre au tag GitHub).
+export const APP_VERSION = 'v1.1.0';
+
+const GITHUB_API_LATEST = 'https://api.github.com/repos/wmaurice80/funny-panda-e3f4c1/releases/latest';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 const CUTOFF_DATE    = new Date('2026-07-11T00:00:00');
@@ -157,4 +165,68 @@ export function useMigration() {
     showWall:   isAfter,
     showBanner: !isAfter,
   };
+}
+
+// ── Hook vérification mise à jour APK ─────────────────────────────────────────
+// Visible uniquement dans l'APK natif.
+// Vérifie la dernière release GitHub au démarrage.
+// Retourne la nouvelle version disponible ou null.
+export function useUpdateCheck() {
+  const [latestVersion, setLatestVersion] = useState(null);
+
+  useEffect(() => {
+    if (!IS_NATIVE) return; // PWA : pas besoin, Netlify se met à jour seul
+
+    fetch(GITHUB_API_LATEST, { headers: { Accept: 'application/vnd.github+json' } })
+      .then(r => r.json())
+      .then(data => {
+        const tag = data?.tag_name;
+        if (!tag || tag === APP_VERSION) return;
+        // Vérifie si l'utilisateur a déjà fermé cette version
+        const dismissed = localStorage.getItem(`update_dismissed_${tag}`);
+        if (!dismissed) setLatestVersion(tag);
+      })
+      .catch(() => {}); // Fail silently (pas de réseau, etc.)
+  }, []);
+
+  return latestVersion;
+}
+
+// ── Bannière mise à jour APK ──────────────────────────────────────────────────
+export function UpdateBanner({ version }) {
+  const [visible, setVisible] = useState(true);
+
+  function dismiss() {
+    localStorage.setItem(`update_dismissed_${version}`, '1');
+    setVisible(false);
+  }
+
+  if (!visible) return null;
+
+  return (
+    <div className="w-full bg-sky-900/80 border-b border-sky-700/60 px-4 py-3 flex items-center gap-3" style={{ zIndex: 50 }}>
+      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-500 text-white flex-shrink-0">
+        Mise à jour
+      </span>
+      <p className="text-xs text-gray-200 flex-1">
+        Version <strong>{version}</strong> disponible — télécharge le nouvel APK.
+      </p>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <a
+          href={APK_URL}
+          download
+          className="text-xs bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+        >
+          ⬇️ Installer
+        </a>
+        <button
+          onClick={dismiss}
+          className="text-gray-500 hover:text-gray-300 text-lg leading-none"
+          aria-label="Fermer"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
 }
