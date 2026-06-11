@@ -190,7 +190,7 @@ function BilanCard({ tdee, cible, objectif, caloriesIngerees, totalSport, delay 
             : caloriesIngerees > tdee
             ? ' — surplus calorique 🔴'
             : caloriesIngerees > cible
-            ? ' — déficit annulé 🟠'
+            ? ' — déficit réduit 🟠'
             : ''}
         </p>
       </div>
