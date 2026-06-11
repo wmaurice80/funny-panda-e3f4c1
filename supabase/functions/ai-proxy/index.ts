@@ -1,7 +1,11 @@
-import { serve } from "https://deno.land/std@0.208.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+// ai-proxy — Edge Function Supabase
+// Proxy sécurisé pour les appels IA (Anthropic + Gemini).
+// Les clés API sont dans les secrets Supabase, jamais dans le bundle client.
+// Utilise Deno.serve natif (pas d'import deno.land/std) et npm: specifiers.
 
-// Client Supabase instancié une seule fois (pas à chaque requête)
+import { createClient } from "npm:@supabase/supabase-js@2"
+
+// Client Supabase instancié une seule fois (hors handler)
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -16,9 +20,8 @@ const ALLOWED_ORIGINS = [
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 const ANTHROPIC_MODEL   = "claude-haiku-4-5-20251001"
-
-const GEMINI_MODEL = "gemini-2.0-flash"
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+const GEMINI_MODEL      = "gemini-2.0-flash"
+const GEMINI_API_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? ""
@@ -32,10 +35,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
 
-  // Handle CORS preflight
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
@@ -47,9 +50,9 @@ serve(async (req) => {
     )
   }
 
-  // ── Validate JWT ───────────────────────────────────────────────────────────
+  // ── Validation JWT ─────────────────────────────────────────────────────────
   const authHeader = req.headers.get("Authorization") ?? ""
-  const token = authHeader.replace("Bearer ", "")
+  const token = authHeader.replace("Bearer ", "").trim()
 
   if (!token) {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders })
@@ -75,13 +78,13 @@ serve(async (req) => {
     )
   }
 
-  // ── Route vers le provider ─────────────────────────────────────────────────
+  // ── Routing ────────────────────────────────────────────────────────────────
   try {
     if (provider === "claude") {
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")
       if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY non configurée.")
 
-      // Whitelist explicite — empêche l'écrasement du modèle et les champs arbitraires
+      // Whitelist explicite — modèle fixé côté serveur, non surchargeable
       const payload: Record<string, unknown> = {
         model:      ANTHROPIC_MODEL,
         messages:   body.messages,
@@ -102,10 +105,7 @@ serve(async (req) => {
       const upstreamBody = await upstream.text()
       return new Response(upstreamBody, {
         status: upstream.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
 
@@ -113,7 +113,7 @@ serve(async (req) => {
       const geminiKey = Deno.env.get("GEMINI_API_KEY")
       if (!geminiKey) throw new Error("GEMINI_API_KEY non configurée.")
 
-      // body est déjà au format Gemini (traduit côté client)
+      // body est déjà au format Gemini (traduit côté client dans claudeApi.js)
       const upstream = await fetch(`${GEMINI_API_URL}?key=${geminiKey}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -123,10 +123,7 @@ serve(async (req) => {
       const upstreamBody = await upstream.text()
       return new Response(upstreamBody, {
         status: upstream.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
 
