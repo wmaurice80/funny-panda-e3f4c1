@@ -1,7 +1,7 @@
 // src/pages/GoogleFitCallback.jsx
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { handleCallback } from '../lib/googleFit'
+import { handleCallback, handleNativeCallback } from '../lib/googleFit'
 
 export default function GoogleFitCallback() {
   const navigate = useNavigate()
@@ -12,8 +12,6 @@ export default function GoogleFitCallback() {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     const error = params.get('error')
-    const state = params.get('state')
-
     if (error) {
       setErrorMessage(
         error === 'access_denied'
@@ -24,18 +22,24 @@ export default function GoogleFitCallback() {
       return
     }
 
-    if (!code) {
-      setErrorMessage("Aucun code d'autorisation reçu. Veuillez réessayer.")
-      setStatus('error')
+    // APK natif : la Edge Function a déjà échangé le code → on reçoit les tokens
+    const accessToken = params.get('access_token')
+    if (accessToken) {
+      try {
+        handleNativeCallback(params)
+        setStatus('success')
+        setTimeout(() => navigate('/integrations'), 1500)
+      } catch (err) {
+        setErrorMessage(err.message || 'Erreur lors du stockage des tokens.')
+        setStatus('error')
+      }
       return
     }
 
-    // APK flow : relayer le code vers le custom scheme pour que l'app le reçoive
-    // via appUrlOpen (le code_verifier est dans le localStorage du WebView Capacitor)
-    if (state === 'calsnap_apk') {
-      window.location.replace(
-        `com.wmaurice.calsnap://auth/google/callback?code=${encodeURIComponent(code)}`
-      )
+    // PWA : échange PKCE classique
+    if (!code) {
+      setErrorMessage("Aucun code d'autorisation reçu. Veuillez réessayer.")
+      setStatus('error')
       return
     }
 

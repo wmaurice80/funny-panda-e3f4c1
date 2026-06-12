@@ -43,10 +43,12 @@ export async function generatePKCE() {
 
 /**
  * Construit l'URL d'autorisation Google OAuth 2.0.
- * @param {string} codeChallenge
+ * APK natif : pas de PKCE (on a un client_secret, PKCE réservé aux clients publics)
+ * PWA : PKCE standard (même navigateur, localStorage fiable)
+ * @param {string|null} codeChallenge - null pour le flux natif sans PKCE
  * @returns {string}
  */
-export function buildAuthURL(codeChallenge, state = '') {
+export function buildAuthURL(codeChallenge = null) {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -54,10 +56,11 @@ export function buildAuthURL(codeChallenge, state = '') {
     scope: SCOPES,
     access_type: 'offline',
     prompt: 'consent',
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    ...(state ? { state } : {}),
   })
+  if (codeChallenge) {
+    params.set('code_challenge', codeChallenge)
+    params.set('code_challenge_method', 'S256')
+  }
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
@@ -66,23 +69,47 @@ export function buildAuthURL(codeChallenge, state = '') {
 // ---------------------------------------------------------------------------
 
 /**
- * Lance le flux OAuth PKCE : génère les codes, stocke le verifier en
- * localStorage et redirige l'utilisateur vers Google.
+ * Lance le flux OAuth.
+ * APK natif : sans PKCE (client_secret disponible, redirect via Edge Function Supabase)
+ * PWA : avec PKCE (localStorage fiable dans le même onglet)
  */
 export async function initiateGoogleAuth() {
-  const { codeVerifier, codeChallenge } = await generatePKCE()
-  localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
-  const authUrl = buildAuthURL(codeChallenge)
   if (IS_NATIVE) {
+    // Flux natif : pas de PKCE, échange server-side dans la Edge Function Supabase
+    const authUrl = buildAuthURL(null)
     const { Browser } = await import('@capacitor/browser')
     await Browser.open({ url: authUrl })
   } else {
-    window.location.href = authUrl
+    // Flux PWA : PKCE (même onglet, localStorage fiable)
+    const { codeVerifier, codeChallenge } = await generatePKCE()
+    localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
+    window.location.href = buildAuthURL(codeChallenge)
   }
 }
 
 /**
  * Échange le code d'autorisation contre les tokens et les stocke.
+ * @param {string} code - Code reçu en query param depuis Google
+ */
+/**
+ * APK natif : reçoit les tokens directement depuis la Edge Function Supabase
+ * (l'échange code↔token est fait server-side).
+ * @param {URLSearchParams} params - query params du deep link
+ */
+export function handleNativeCallback(params) {
+  const error = params.get('error')
+  if (error) throw new Error(error)
+
+  const accessToken  = params.get('access_token')
+  const refreshToken = params.get('refresh_token')
+  const expiresIn    = parseInt(params.get('expires_in') || '3600', 10)
+
+  if (!accessToken) throw new Error('Tokens manquants dans la réponse Supabase')
+  storeTokens({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn })
+}
+
+/**
+ * PWA : échange le code PKCE contre les tokens (client-side).
  * @param {string} code - Code reçu en query param depuis Google
  */
 export async function handleCallback(code) {

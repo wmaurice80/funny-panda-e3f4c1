@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react';
 
 // ── Version courante de l'APK ─────────────────────────────────────────────────
 // À mettre à jour avant chaque release (doit correspondre au tag GitHub).
-export const APP_VERSION = 'v1.3.4';
+export const APP_VERSION = 'v1.3.5';
 
 const GITHUB_API_LATEST = 'https://api.github.com/repos/wmaurice80/funny-panda-e3f4c1/releases/latest';
 
