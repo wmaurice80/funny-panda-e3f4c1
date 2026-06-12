@@ -1,8 +1,12 @@
 // src/lib/googleFit.js
+import { Capacitor } from '@capacitor/core'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET
-const REDIRECT_URI = `${window.location.origin}/auth/google/callback`
+const IS_NATIVE = Capacitor.isNativePlatform()
+const REDIRECT_URI = IS_NATIVE
+  ? 'com.wmaurice.calsnap://auth/google/callback'
+  : `${window.location.origin}/auth/google/callback`
 const SCOPES =
   'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read'
 
@@ -65,7 +69,13 @@ export function buildAuthURL(codeChallenge) {
 export async function initiateGoogleAuth() {
   const { codeVerifier, codeChallenge } = await generatePKCE()
   localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
-  window.location.href = buildAuthURL(codeChallenge)
+  const authUrl = buildAuthURL(codeChallenge)
+  if (IS_NATIVE) {
+    const { Browser } = await import('@capacitor/browser')
+    await Browser.open({ url: authUrl })
+  } else {
+    window.location.href = authUrl
+  }
 }
 
 /**

@@ -1,5 +1,8 @@
 // src/App.jsx
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { useAuth } from './lib/AuthContext';
 import BottomNav from './components/BottomNav';
 import { MigrationWall, MigrationBanner, useMigration, useUpdateCheck, UpdateBanner } from './components/MigrationAPK';
@@ -40,6 +43,20 @@ export default function App() {
   const showNav = !NO_NAV_ROUTES.includes(pathname);
   const { showWall, showBanner } = useMigration();
   const updateVersion = useUpdateCheck();
+  const navigate = useNavigate();
+
+  // Deep link handler pour OAuth Google Fit (APK uniquement)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let handle;
+    CapApp.addListener('appUrlOpen', ({ url }) => {
+      if (url.includes('/auth/google/callback')) {
+        const qs = url.split('?')[1] || '';
+        navigate(`/auth/google/callback?${qs}`, { replace: true });
+      }
+    }).then(h => { handle = h; });
+    return () => { handle?.remove(); };
+  }, [navigate]);
 
   // ── Mur de migration post-coupure (PWA uniquement) ────────────────────────
   if (showWall) return <MigrationWall />;
