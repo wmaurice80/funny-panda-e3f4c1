@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.wmaurice.calsnap",
+    "sha256_cert_fingerprints": [
+      "EC:2E:45:06:F0:CD:D7:67:C5:F4:B5:9A:09:72:71:B0:50:F6:BC:AC:41:1C:61:76:35:98:E0:A5:1C:4C:9F:55"
+    ]
+  }
+}]
