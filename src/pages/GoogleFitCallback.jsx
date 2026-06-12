@@ -12,6 +12,7 @@ export default function GoogleFitCallback() {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     const error = params.get('error')
+    const state = params.get('state')
 
     if (error) {
       setErrorMessage(
@@ -26,6 +27,15 @@ export default function GoogleFitCallback() {
     if (!code) {
       setErrorMessage("Aucun code d'autorisation reçu. Veuillez réessayer.")
       setStatus('error')
+      return
+    }
+
+    // APK flow : relayer le code vers le custom scheme pour que l'app le reçoive
+    // via appUrlOpen (le code_verifier est dans le localStorage du WebView Capacitor)
+    if (state === 'calsnap_apk') {
+      window.location.replace(
+        `com.wmaurice.calsnap://auth/google/callback?code=${encodeURIComponent(code)}`
+      )
       return
     }
 

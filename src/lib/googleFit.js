@@ -4,9 +4,8 @@ import { Capacitor } from '@capacitor/core'
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET
 const IS_NATIVE = Capacitor.isNativePlatform()
-const REDIRECT_URI = IS_NATIVE
-  ? 'com.wmaurice.calsnap://auth/google/callback'
-  : `${window.location.origin}/auth/google/callback`
+// Toujours l'URL Netlify (HTTPS) — Google refuse les custom schemes comme redirect URI
+const REDIRECT_URI = 'https://calsnapwmp.netlify.app/auth/google/callback'
 const SCOPES =
   'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read'
 
@@ -44,7 +43,7 @@ export async function generatePKCE() {
  * @param {string} codeChallenge
  * @returns {string}
  */
-export function buildAuthURL(codeChallenge) {
+export function buildAuthURL(codeChallenge, state = '') {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -54,6 +53,7 @@ export function buildAuthURL(codeChallenge) {
     prompt: 'consent',
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
+    ...(state ? { state } : {}),
   })
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
@@ -69,7 +69,8 @@ export function buildAuthURL(codeChallenge) {
 export async function initiateGoogleAuth() {
   const { codeVerifier, codeChallenge } = await generatePKCE()
   localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
-  const authUrl = buildAuthURL(codeChallenge)
+  // state=calsnap_apk signale à la page Netlify de relayer le code vers le custom scheme
+  const authUrl = buildAuthURL(codeChallenge, IS_NATIVE ? 'calsnap_apk' : '')
   if (IS_NATIVE) {
     const { Browser } = await import('@capacitor/browser')
     await Browser.open({ url: authUrl })
