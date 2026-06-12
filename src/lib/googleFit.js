@@ -4,8 +4,11 @@ import { Capacitor } from '@capacitor/core'
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET
 const IS_NATIVE = Capacitor.isNativePlatform()
-// Toujours l'URL Netlify (HTTPS) — Google refuse les custom schemes comme redirect URI
-const REDIRECT_URI = 'https://calsnapwmp.netlify.app/auth/google/callback'
+// APK : Edge Function Supabase (permanente, indépendante de Netlify)
+// PWA : origin Netlify
+const REDIRECT_URI = IS_NATIVE
+  ? 'https://lhcouyccseuyczcmatoa.supabase.co/functions/v1/gfit-callback'
+  : `${window.location.origin}/auth/google/callback`
 const SCOPES =
   'https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read'
 
@@ -69,8 +72,7 @@ export function buildAuthURL(codeChallenge, state = '') {
 export async function initiateGoogleAuth() {
   const { codeVerifier, codeChallenge } = await generatePKCE()
   localStorage.setItem(SS_CODE_VERIFIER, codeVerifier)
-  // state=calsnap_apk signale à la page Netlify de relayer le code vers le custom scheme
-  const authUrl = buildAuthURL(codeChallenge, IS_NATIVE ? 'calsnap_apk' : '')
+  const authUrl = buildAuthURL(codeChallenge)
   if (IS_NATIVE) {
     const { Browser } = await import('@capacitor/browser')
     await Browser.open({ url: authUrl })
