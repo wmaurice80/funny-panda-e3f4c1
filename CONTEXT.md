@@ -672,6 +672,77 @@ npm run build && npx cap sync android   # sync dist → Android
 
 ---
 
+## Résumé de session — 12 juin 2026
+
+### Objectifs
+- Fix libellé "déficit annulé" → "déficit réduit"
+- P1-02 : Fallback Gemini 2.0 Flash si Claude indisponible
+- Migration forcée PWA → APK (bannière + mur au 11 juillet)
+- Distribution APK : keystore release + GitHub Releases
+- Bandeau mise à jour automatique dans l'APK
+- Phase 4 : proxy clés API via Supabase Edge Function `ai-proxy`
+- Numéro de version affiché dans le Profil
+
+### Livraisons
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `Dashboard.jsx` | "déficit annulé" → "déficit réduit" en zone orange (ingérées > cible mais < TDEE) |
+| 2 | `src/lib/claudeApi.js` | Fallback Gemini 2.0 Flash si Claude échoue — `callGemini()` traduit format Anthropic → Gemini, retour compatible |
+| 3 | `src/components/MigrationAPK.jsx` (nouveau) | `MigrationBanner` (countdown J-30→J-0), `MigrationWall` (mur post-11/07), `useMigration()`, `useUpdateCheck()`, `UpdateBanner` |
+| 4 | `src/App.jsx` | Intègre `MigrationWall` (avant loading), `MigrationBanner` + `UpdateBanner` (après auth) |
+| 5 | `android/app/build.gradle` | `signingConfigs release` via `keystore.properties`, versionCode/Name auto-incrémentés |
+| 6 | `android/keystore.properties.example` | Template keystore (gitignore sur `.keystore` + `keystore.properties`) |
+| 7 | `scripts/release-apk.sh` (nouveau) | Script release : met à jour APP_VERSION + versionCode/Name, build web + cap sync, commit + push + instructions |
+| 8 | `supabase/functions/ai-proxy/index.ts` (nouveau) | Edge Function Deno — JWT validé, CORS restreint, whitelist champs Anthropic (modèle fixé serveur-side), fallback Gemini, `Deno.serve` natif |
+| 9 | `src/lib/claudeApi.js` | Refacto Phase 4 — tous les appels via `supabase.functions.invoke('ai-proxy')`, fallback local conditionné à `DEV===true`, interface publique inchangée |
+| 10 | `src/pages/Profile.jsx` | Numéro de version `APP_VERSION` en bas de page (discret, gris) |
+| 11 | `src/pages/Repas.jsx` | Commentaire de sécurité obsolète mis à jour |
+
+### APK — versions publiées
+| Version | versionCode | Contenu |
+|---|---|---|
+| v1.1.0 | 2 | Première release signée — distribution migration PWA |
+| v1.2.0 | 3 | Phase 4 proxy IA (clés côté serveur) + Gemini fallback |
+| v1.2.1 | 4 | Numéro de version dans le Profil |
+
+### Keystore release
+- Fichier : `calsnap-release.keystore` (racine projet, gitignore)
+- Alias : `calsnap` — RSA 2048 bits, valide 10 000 jours
+- Config : `android/keystore.properties` (gitignore)
+- **⚠️ Sauvegarder impérativement — sans ce fichier impossible de mettre à jour l'APK**
+
+### Distribution APK
+- Repo GitHub rendu **public** (nécessaire pour le téléchargement des releases sans auth)
+- APK hébergé sur GitHub Releases : `https://github.com/wmaurice80/funny-panda-e3f4c1/releases/latest/download/calsnap.apk`
+- Migration PWA forcée le **11 juillet 2026** (mur complet dans la PWA, invisible dans l'APK)
+
+### Phase 4 — Edge Function ai-proxy
+- Déployée via API REST Supabase (CLI bloqué DNS en local)
+- Secrets configurés : `ANTHROPIC_API_KEY` ✅ — `GEMINI_API_KEY` ❌ (à configurer pour activer fallback Gemini)
+- JWT Supabase requis (401 si absent) — modèle fixé serveur-side (non surchargeable)
+- `VITE_ANTHROPIC_API_KEY` à supprimer de Netlify pour finaliser la sécurisation
+- Commande redéploiement futur :
+  ```bash
+  curl -s -X PATCH \
+    "https://api.supabase.com/v1/projects/lhcouyccseuyczcmatoa/functions/ai-proxy" \
+    -H "Authorization: Bearer <SUPABASE_ACCESS_TOKEN>" \
+    -H "Content-Type: application/json" \
+    -d "{\"body\": $(jq -Rs . < supabase/functions/ai-proxy/index.ts)}"
+  ```
+
+### Workflow release (règle permanente)
+Toute modification doit être déployée sur **les deux cibles** :
+1. **PWA** : `git push` → Netlify auto
+2. **APK** : `./scripts/release-apk.sh vX.Y.Z` → Android Studio (Generate Signed APK → Release) → `gh release create vX.Y.Z calsnap.apk`
+
+### Prochaines étapes
+- Configurer `GEMINI_API_KEY` dans les secrets Supabase (`supabase secrets set GEMINI_API_KEY=AIza...`)
+- Supprimer `VITE_ANTHROPIC_API_KEY` de Netlify
+- Phase 3 : OAuth Custom URL Scheme Google Fit pour APK
+- Phase 5 : Publication Play Store
+
+---
+
 ## Backlog stratégique — IA locale + App native + Monétisation
 > Ajouté le 22 mai 2026
 
@@ -684,7 +755,7 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
 
 ### PRIORITÉ HAUTE — court terme
 - [x] **P1-01** Retry avec backoff exponentiel sur erreurs 529/503 Anthropic ✅
-- [ ] **P1-02** Fallback Gemini Flash vision (quota gratuit généreux)
+- [x] **P1-02** Fallback Gemini Flash vision ✅ (via Edge Function ai-proxy)
 - [x] **P1-03** Setup Capacitor + build Android test ✅ (feature/capacitor-android)
 
 ### PRIORITÉ MOYENNE — moyen terme
