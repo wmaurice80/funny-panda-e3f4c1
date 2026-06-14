@@ -15,14 +15,16 @@ function NativeCameraCapture({ onCapture, onCancel }) {
         const photo = await Camera.getPhoto({
           resultType: CameraResultType.Base64,
           source: CameraSource.Camera,
-          quality: 90,
+          quality: 85,
           correctOrientation: true,
+          width: 1280,
+          height: 1024,
         });
-        const mimeType = `image/${photo.format}`;
-        const byteChars = atob(photo.base64String);
-        const bytes = new Uint8Array(byteChars.length);
-        for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
-        const file = new File([bytes], `repas.${photo.format}`, { type: mimeType });
+        const mimeType = (photo.format === 'jpg' || photo.format === 'jpeg') ? 'image/jpeg' : `image/${photo.format}`;
+        const dataUrl = `data:${mimeType};base64,${photo.base64String}`;
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], `repas.${photo.format}`, { type: blob.type || mimeType });
         onCapture(file);
       } catch (err) {
         const msg = err?.message || '';
