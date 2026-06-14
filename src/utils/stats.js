@@ -79,11 +79,8 @@ export async function getMonthBilan(year, month, tdee, cible, garminDailyMap = {
 
   const totalIngested = pastDays.reduce((s, d) => s + d.ingested, 0);
 
-  // Cible par jour = cible repos + sport de ce jour
-  const totalBurned = pastDays.reduce((s, d) => {
-    const sportJour = Math.max(0, d.burned - tdee);
-    return s + cibleEffective + sportJour;
-  }, 0);
+  // Dépense réelle par jour (Garmin si dispo, sinon TDEE+sport) — cohérent avec getWeeklyTrends
+  const totalBurned = pastDays.reduce((s, d) => s + d.burned, 0);
 
   const netBalance = totalIngested - totalBurned;
   const fatKg = Math.round((netBalance / 7700) * 100) / 100;
