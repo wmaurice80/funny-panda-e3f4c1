@@ -45,7 +45,8 @@ export default function App() {
   const updateVersion = useUpdateCheck();
   const navigate = useNavigate();
 
-  // Deep link handler pour OAuth Google Fit (APK uniquement)
+  // App Link handler : Android intercepte https://calsnapwmp.netlify.app/auth/google/callback
+  // et l'envoie ici via appUrlOpen au lieu de l'ouvrir dans Chrome
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let handle;

@@ -736,10 +736,71 @@ Toute modification doit être déployée sur **les deux cibles** :
 2. **APK** : `./scripts/release-apk.sh vX.Y.Z` → Android Studio (Generate Signed APK → Release) → `gh release create vX.Y.Z calsnap.apk`
 
 ### Prochaines étapes
-- Configurer `GEMINI_API_KEY` dans les secrets Supabase (`supabase secrets set GEMINI_API_KEY=AIza...`)
-- Supprimer `VITE_ANTHROPIC_API_KEY` de Netlify
-- Phase 3 : OAuth Custom URL Scheme Google Fit pour APK
-- Phase 5 : Publication Play Store
+- Phase 5 : Publication Play Store (non prioritaire — distribution via GitHub Releases)
+- P2-02 : TensorFlow.js food-101 offline
+- P2-04 : Build iOS / TestFlight
+
+---
+
+## Résumé de session — 14 juin 2026
+
+### Objectifs
+- Configurer GEMINI_API_KEY (fallback IA)
+- Supprimer VITE_ANTHROPIC_API_KEY de Netlify (sécurisation Phase 4)
+- Phase 3 : OAuth Google Fit fonctionnel dans l'APK
+- P2-01 : Caméra native Capacitor
+
+### Livraisons
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | Supabase secrets | `GEMINI_API_KEY` configuré → fallback Gemini actif dans `ai-proxy` |
+| 2 | Netlify | `VITE_ANTHROPIC_API_KEY` supprimé → Phase 4 sécurisation complète |
+| 3 | `supabase/functions/gfit-callback/index.ts` | Edge Function OAuth callback : échange code↔token server-side, redirect vers custom scheme APK |
+| 4 | `src/lib/googleFit.js` | Flux natif : `Browser.open()` + `handleNativeCallback()` (tokens via deep link), pas de PKCE. PWA : PKCE inchangé |
+| 5 | `src/pages/GoogleFitCallback.jsx` | Détecte `access_token` (APK) vs `code` (PWA) et route vers le bon handler |
+| 6 | `src/App.jsx` | `appUrlOpen` listener : intercepte `com.wmaurice.calsnap://auth/google/callback` → navigate |
+| 7 | `android/app/src/main/AndroidManifest.xml` | Intent filter custom scheme `com.wmaurice.calsnap://` |
+| 8 | `src/components/CameraCapture.jsx` | P2-01 : détecte Capacitor → `Camera.getPhoto()` natif (APK) vs `getUserMedia` (PWA) |
+| 9 | `android/variables.gradle` | `minSdkVersion` 23→24 (requis par `@capacitor/camera`) |
+| 10 | `android/variables.gradle` + `build.gradle` | `compileSdk/targetSdk` 35→36, AGP 8.7.2→8.9.1 (requis par `androidx.browser:1.9.0`) |
+| 11 | Supabase secrets | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` configurés (échange server-side) |
+
+### Packages installés
+- `@capacitor/browser@8.0.3` — Chrome Custom Tab pour OAuth
+- `@capacitor/app@8.1.0` — deep link handler (`appUrlOpen`)
+- `@capacitor/camera@8.2.0` — caméra native Android
+
+### Architecture OAuth Google Fit APK — flux final
+```
+APK → Browser.open(authUrl) [pas de PKCE]
+  → Chrome Custom Tab → Google OAuth
+  → Google redirect → Supabase gfit-callback
+  → Edge Function : POST /token (server-side) → tokens
+  → HTTP 302 → com.wmaurice.calsnap://auth/google/callback?access_token=...
+  → Android intercepte custom scheme → ferme Custom Tab
+  → appUrlOpen → navigate /auth/google/callback
+  → GoogleFitCallback.jsx détecte access_token → handleNativeCallback() → storeTokens()
+```
+
+### Google Cloud Console — redirect URIs autorisés
+- `https://calsnapwmp.netlify.app/auth/google/callback` (PWA)
+- `https://lhcouyccseuyczcmatoa.supabase.co/functions/v1/gfit-callback` (APK)
+
+### APK versions publiées cette session
+| Version | versionCode | Contenu |
+|---|---|---|
+| v1.3.0 | 5 | Phase 3 init (custom scheme — non fonctionnel) |
+| v1.3.1 | 6 | Tentative App Links (assetlinks.json non commité) |
+| v1.3.2 | 7 | Supabase Edge Function relay (JS redirect — bloqué Chrome) |
+| v1.3.3 | 8 | P2-01 caméra native + AGP/SDK upgrades |
+| v1.3.4 | 9 | Sans PKCE natif (token exchange côté client — 400) |
+| v1.3.5 | 10 | ✅ Final : échange token server-side Supabase, `GOOGLE_CLIENT_SECRET` hors APK |
+
+### Notes techniques
+- Chrome Custom Tab bloque les redirections JS (`window.location.replace`) vers custom schemes → server-side 302 requis
+- App Links (HTTPS) nécessitent `assetlinks.json` déployé ET vérifié à l'installation — fragile
+- PKCE impossible dans le flux natif : le WebView peut être recréé entre `Browser.open()` et le retour du deep link → `code_verifier` perdu
+- Solution définitive : échange server-side dans Edge Function → deep link avec tokens directement
 
 ---
 
@@ -759,7 +820,7 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
 - [x] **P1-03** Setup Capacitor + build Android test ✅ (feature/capacitor-android)
 
 ### PRIORITÉ MOYENNE — moyen terme
-- [ ] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia)
+- [x] **P2-01** Plugin Capacitor Camera natif (remplace getUserMedia) ✅ v1.3.3
 - [ ] **P2-02** TensorFlow.js food-101 local (analyse offline)
 - [ ] **P2-03** Pipeline local → lookup Open Food Facts → macros
 - [ ] **P2-04** Build iOS + soumission TestFlight
