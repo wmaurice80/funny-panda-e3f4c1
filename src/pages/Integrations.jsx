@@ -19,6 +19,13 @@ import { getActivitiesForDate } from '../db';
 import { syncedAddActivity, syncedAddWeight, syncGarminDaily, syncGarminActivities } from '../lib/syncManager';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import {
+  isHealthConnectAvailable,
+  requestHealthConnectPermissions,
+  checkHealthConnectPermissions,
+  readRecentDailyData,
+} from '../lib/healthConnect';
+import { pushGarminDaily } from '../lib/supabaseDb';
 
 /** Formate la date courante en 'YYYY-MM-DD' */
 function todayISO() {
@@ -183,6 +190,13 @@ export default function Integrations() {
   const [garminDebug, setGarminDebug] = useState(null)
   const [garminDebugging, setGarminDebugging] = useState(false)
 
+  // Health Connect
+  const [hcAvailable, setHcAvailable] = useState(null) // null = loading, true/false
+  const [hcPermissionsGranted, setHcPermissionsGranted] = useState(false)
+  const [hcSyncing, setHcSyncing] = useState(false)
+  const [hcResult, setHcResult] = useState(null) // Array<{ date, total_kcal, active_kcal, steps }> | null
+  const [hcError, setHcError] = useState(null)
+
   // Vérification initiale de la connexion
   const checkConnection = useCallback(async () => {
     setLoadingStatus(true);
@@ -199,6 +213,87 @@ export default function Integrations() {
   useEffect(() => {
     checkConnection();
   }, [checkConnection]);
+
+  // Vérification disponibilité + permissions Health Connect au montage
+  useEffect(() => {
+    let cancelled = false
+    async function checkHC() {
+      try {
+        // Timeout 4s : si le plugin ne répond pas, on considère HC indisponible
+        const timeout = new Promise(resolve => setTimeout(() => resolve(false), 4000))
+        const available = await Promise.race([isHealthConnectAvailable(), timeout])
+        if (cancelled) return
+        setHcAvailable(available)
+        if (available) {
+          const perms = await Promise.race([
+            checkHealthConnectPermissions(),
+            new Promise(resolve => setTimeout(() => resolve(false), 3000)),
+          ])
+          if (!cancelled) setHcPermissionsGranted(perms)
+        }
+      } catch {
+        if (!cancelled) setHcAvailable(false)
+      }
+    }
+    checkHC()
+    return () => { cancelled = true }
+  }, [])
+
+  const [hcChecking, setHcChecking] = useState(false)
+
+  const handleHcConnect = async () => {
+    setHcError(null)
+    try {
+      // Pas de timeout ici — le dialogue HC attend l'interaction utilisateur
+      const granted = await requestHealthConnectPermissions()
+      setHcPermissionsGranted(granted)
+      if (!granted) {
+        setHcError('Permissions refusées ou dialogue fermé. Réessaie ou accorde les permissions manuellement dans Santé Connect.')
+      }
+    } catch (err) {
+      setHcError(err?.message ?? 'Erreur lors de la demande de permissions')
+    }
+  }
+
+  const handleHcCheckPermissions = async () => {
+    setHcChecking(true)
+    setHcError(null)
+    try {
+      const granted = await checkHealthConnectPermissions()
+      setHcPermissionsGranted(granted)
+      if (!granted) {
+        setHcError('Permissions non trouvées. Suis le guide ci-dessous puis réessaie.')
+      }
+    } catch (err) {
+      setHcError(err?.message ?? 'Erreur vérification permissions')
+    } finally {
+      setHcChecking(false)
+    }
+  }
+
+  const handleHcSync = async () => {
+    setHcSyncing(true)
+    setHcResult(null)
+    setHcError(null)
+    try {
+      const entries = await readRecentDailyData()
+      if (!entries.length) {
+        setHcResult([])
+        return
+      }
+      if (!user?.id) {
+        setHcError('Utilisateur non connecté — impossible de sauvegarder.')
+        return
+      }
+      await pushGarminDaily(user.id, entries)
+      window.dispatchEvent(new CustomEvent('garmin-synced'))
+      setHcResult(entries)
+    } catch (err) {
+      setHcError(err?.message ?? 'Erreur de synchronisation Health Connect')
+    } finally {
+      setHcSyncing(false)
+    }
+  }
 
   // US-F04 : Déconnexion
   const handleDisconnect = async () => {
@@ -619,6 +714,146 @@ export default function Integrations() {
               En attendant, tu peux saisir ton TDEE manuellement dans ton profil, ou importer
               tes activités via Google Fit.
             </p>
+          )}
+        </div>
+
+        {/* ── Card Health Connect ──────────────────────────────────────────── */}
+        <div className="bg-[#1a1a2e] rounded-2xl p-5 shadow-xl border border-white/5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">❤️</span>
+              <div>
+                <p className="text-sm font-bold text-white">Health Connect</p>
+                <p className="text-xs text-gray-500">Calories · Pas · Activités</p>
+              </div>
+            </div>
+            {hcAvailable === true && hcPermissionsGranted && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
+                               bg-emerald-900/30 border border-emerald-700/40 text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Connecté
+              </span>
+            )}
+          </div>
+
+          {/* Chargement initial */}
+          {hcAvailable === null ? (
+            <div className="flex justify-center py-4">
+              <div className="w-6 h-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+            </div>
+          ) : hcAvailable === false ? (
+            /* HC non disponible (PWA ou HC non installé) */
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl px-4 py-3 bg-orange-900/20 border border-orange-700/30">
+                <p className="text-xs font-semibold text-orange-400 mb-1">Non disponible</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Health Connect n&apos;est pas disponible sur cet appareil. Assure-toi d&apos;utiliser
+                  l&apos;APK CalSnap sur Android et d&apos;avoir installé{' '}
+                  <span className="text-orange-300 font-semibold">Health Connect</span> depuis le Play Store.
+                </p>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Health Connect centralise les données de santé sur Android (Android 14+ intégré,
+                Android 9–13 via Play Store). Il agrège Garmin, Samsung Health, Fitbit et d&apos;autres sources.
+              </p>
+            </div>
+          ) : !hcPermissionsGranted ? (
+            /* HC disponible mais pas de permissions */
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Connecte Santé Connect pour importer automatiquement tes calories brûlées
+                et ton nombre de pas depuis Garmin.
+              </p>
+
+              {/* Bouton principal — ouvre le dialogue Santé Connect */}
+              <button
+                onClick={handleHcConnect}
+                className="w-full py-3 rounded-xl
+                           bg-gradient-to-r from-rose-600 to-pink-600
+                           text-white font-semibold text-sm
+                           flex items-center justify-center gap-2
+                           hover:opacity-90 active:scale-95 transition-all duration-200"
+              >
+                <span>🔗</span>Connecter Santé Connect
+              </button>
+
+              {/* Bouton secondaire — si dialogue ne s'ouvre pas */}
+              <button
+                onClick={handleHcCheckPermissions}
+                disabled={hcChecking}
+                className="w-full py-2.5 rounded-xl border border-white/10 bg-[#0f0f1a]
+                           text-gray-400 font-medium text-xs
+                           flex items-center justify-center gap-2
+                           hover:text-white transition-colors
+                           disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {hcChecking ? <><Spinner />Vérification…</> : <><span>✅</span>Permissions déjà accordées ? Vérifier</>}
+              </button>
+
+              {hcError && (
+                <div className="rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
+                  <p className="text-xs text-red-400">{hcError}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* HC connecté avec permissions */
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Importe les calories brûlées et les pas des 2 derniers jours depuis Health Connect.
+              </p>
+              <button
+                onClick={handleHcSync}
+                disabled={hcSyncing}
+                className="w-full py-3 rounded-xl
+                           bg-gradient-to-r from-rose-600 to-pink-600
+                           text-white font-semibold text-sm
+                           flex items-center justify-center gap-2
+                           hover:opacity-90 active:scale-95 transition-all duration-200
+                           disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {hcSyncing ? (
+                  <><Spinner />Synchronisation HC…</>
+                ) : (
+                  <><span>🔄</span>Synchroniser Health Connect</>
+                )}
+              </button>
+
+              {hcResult !== null && (
+                <div className="rounded-xl px-4 py-3 bg-emerald-900/20 border border-emerald-700/30
+                                flex flex-col gap-1.5">
+                  <p className="text-sm font-bold text-emerald-400">Sync Health Connect terminée ✓</p>
+                  {hcResult.length === 0 ? (
+                    <p className="text-xs text-gray-400">Aucune donnée trouvée sur les 2 derniers jours.</p>
+                  ) : (
+                    hcResult.map(entry => (
+                      <div key={entry.date} className="flex flex-col gap-0.5">
+                        <p className="text-xs font-semibold text-gray-300">
+                          {new Date(entry.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </p>
+                        {entry.total_kcal > 0 && (
+                          <p className="text-xs text-violet-300">
+                            ⚡ Total : {entry.total_kcal.toLocaleString('fr-FR')} kcal
+                            {entry.active_kcal > 0 && ` (actif : ${entry.active_kcal.toLocaleString('fr-FR')} kcal)`}
+                          </p>
+                        )}
+                        {entry.steps > 0 && (
+                          <p className="text-xs text-cyan-300">
+                            👟 Pas : {entry.steps.toLocaleString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {hcError && (
+                <div className="rounded-xl px-4 py-3 bg-red-900/20 border border-red-700/30">
+                  <p className="text-xs text-red-400">{hcError}</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

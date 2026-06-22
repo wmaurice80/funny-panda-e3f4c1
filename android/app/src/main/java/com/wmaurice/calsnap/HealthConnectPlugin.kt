@@ -100,14 +100,30 @@ class HealthConnectPlugin : Plugin() {
         }
         bridge.saveCall(call)
         pendingPermissionCall = call
-        try {
-            permissionLauncher.launch(PERMISSIONS)
-            Log.d(TAG, "requestPermissions — launcher started")
-        } catch (e: Exception) {
-            Log.e(TAG, "requestPermissions — launch failed: ${e.message}")
-            pendingPermissionCall = null
-            bridge.releaseCall(call)
-            call.reject("Failed to launch permission dialog: ${e.message}")
+
+        // getOrCreate() DOIT être appelé avant de lancer le dialogue :
+        // c'est lui qui enregistre l'app auprès de Health Connect.
+        // Sans cet appel, HC reçoit la demande mais ignore silencieusement le dialogue.
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                withTimeout(HC_TIMEOUT_MS) {
+                    HealthConnectClient.getOrCreate(context)
+                    Log.d(TAG, "requestPermissions — HC client initialized (app registered)")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "requestPermissions — HC init warning (continuing): ${e.message}")
+            }
+            withContext(Dispatchers.Main) {
+                try {
+                    permissionLauncher.launch(PERMISSIONS)
+                    Log.d(TAG, "requestPermissions — launcher started")
+                } catch (e: Exception) {
+                    Log.e(TAG, "requestPermissions — launch failed: ${e.message}")
+                    pendingPermissionCall = null
+                    bridge.releaseCall(call)
+                    call.reject("Failed to launch permission dialog: ${e.message}")
+                }
+            }
         }
     }
 
