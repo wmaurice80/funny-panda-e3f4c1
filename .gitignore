@@ -13,3 +13,4 @@ android/app/debug/
 android/captures/
 android/.idea/
 android/local.properties
+calsnap-release.keystore

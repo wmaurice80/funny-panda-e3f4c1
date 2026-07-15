@@ -1,65 +1,7 @@
 // src/components/CameraCapture.jsx
 import { useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 
-const IS_NATIVE = Capacitor.isNativePlatform();
-
-// ── APK : plugin Capacitor Camera natif ──────────────────────────────────────
-function NativeCameraCapture({ onCapture, onCancel }) {
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function takePhoto() {
-      try {
-        const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-        const photo = await Camera.getPhoto({
-          resultType: CameraResultType.Base64,
-          source: CameraSource.Camera,
-          quality: 85,
-          correctOrientation: true,
-          width: 1280,
-          height: 1024,
-        });
-        const mimeType = (photo.format === 'jpg' || photo.format === 'jpeg') ? 'image/jpeg' : `image/${photo.format}`;
-        const dataUrl = `data:${mimeType};base64,${photo.base64String}`;
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], `repas.${photo.format}`, { type: blob.type || mimeType });
-        onCapture(file);
-      } catch (err) {
-        const msg = err?.message || '';
-        // Annulation utilisateur — pas une erreur
-        if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('no image')) {
-          onCancel();
-        } else {
-          setError(msg || 'Erreur accès caméra');
-        }
-      }
-    }
-    takePhoto();
-  }, []);
-
-  if (error) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center gap-4 px-8">
-        <span className="text-4xl">📷</span>
-        <p className="text-white text-center text-sm">{error}</p>
-        <button onClick={onCancel}
-          className="px-6 py-3 rounded-2xl bg-violet-600 text-white font-semibold text-sm">
-          Retour
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
-      <div className="w-10 h-10 rounded-full border-2 border-white border-t-transparent animate-spin" />
-    </div>
-  );
-}
-
-// ── PWA : getUserMedia (fiable sur Chrome Android) ────────────────────────────
+// ── Caméra getUserMedia — fonctionne PWA et APK (pas d'Activity switch) ──────
 function WebCameraCapture({ onCapture, onCancel }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -147,8 +89,6 @@ function WebCameraCapture({ onCapture, onCancel }) {
   );
 }
 
-// ── Export principal ──────────────────────────────────────────────────────────
 export default function CameraCapture({ onCapture, onCancel }) {
-  if (IS_NATIVE) return <NativeCameraCapture onCapture={onCapture} onCancel={onCancel} />;
   return <WebCameraCapture onCapture={onCapture} onCancel={onCancel} />;
 }
