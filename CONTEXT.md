@@ -868,3 +868,13 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
   (semaine déficit −500/j + 55 g alcool → Estimé −0,38 / Balance −0,07 / Écart +0,31 🍷)
 - Les repas photo/IA ne détectent pas encore l'alcool — seule la saisie via Boissons compte (backlog)
 - **Non commité** — la working tree contenait déjà du travail en cours (Health Connect, v1.7.x)
+
+### Release v1.8.0 publiée (15 juillet, même session)
+- APK signé buildé en CLI (`gradlew assembleRelease`, JAVA_HOME = JBR d'Android Studio) — Android Studio pas nécessaire
+- https://github.com/wmaurice80/funny-panda-e3f4c1/releases/tag/v1.8.0 (versionCode 29)
+- Contenu : feature alcool + fix caméra getUserMedia (revert Camera.getPhoto) + fix build
+- **Découverte importante** : les releases v1.7.x étaient buildées avec une working tree sale — deux morceaux
+  du code Health Connect déjà commité manquaient sur main (`pushGarminDaily` dans supabaseDb.js, minSdk 26).
+  Commitées proprement cette session. Le reste du WIP Health Connect (manifest permissions, plugin .kt,
+  App.jsx auto-sync, package.json @devmaxime/capacitor-health-connect, Repas.jsx base64) est restauré
+  dans la working tree, non commité — à reprendre.
