@@ -837,3 +837,34 @@ Photo → [Niveau 1] Modèle local TF.js food-101 (offline, gratuit)
 |---|---|---|
 | Gratuit | 0€ | Saisie manuelle, Open Food Facts, stats, sync cloud |
 | Premium | ~3-5€/mois ou ~25€/an | Analyse photo IA, historique illimité, export CSV |
+
+---
+
+## Résumé de session — 15 juillet 2026
+
+### 1. Fix synchro Garmin (tokens expirés)
+- Refresh token du 1er juin arrivé en fin de vie (~60 j) → regénéré via `garmin_auth.py` (auth OK du 1er coup)
+- Secret `GARMIN_TOKENS` mis à jour via `supabase secrets set` — **prochaine regénération attendue ~mi-septembre 2026**
+- Sync testée : 14-15 juillet remontés (TDEE + activités)
+
+### 2. Feature Alcool — impact sur la perte de gras
+> Principe : ne PAS fausser les calculs kcal (le bilan énergétique reste roi), mais rendre visible
+> la pause de lipolyse et l'écart balance vs estimation les semaines alcoolisées.
+
+| # | Fichier(s) | Description |
+|---|---|---|
+| 1 | `DrinkSources.jsx` | Champ `alcoolG` sur toutes les portions alcoolisées (= cl × %vol × 0,789) — transmis dans l'item du panier |
+| 2 | `utils/stats.js` | `getMonthlyData` : `alcoholG`/jour (somme des items). `getWeeklyTrends` : + `alcoholG`, `alcoholDays`, `scaleKg` (variation balance : moyenne pesées semaine vs réf 7 j précédents, fallback dernière pesée ≤14 j), `gapKg` (balance − estimé) |
+| 3 | `WeeklyTrends.jsx` | Par semaine : ligne **Estimé / ⚖️ Balance / Écart** (kg) + badge `🍷 Xj · Yg` + message explicatif si semaine alcoolisée et écart > +0,15 kg |
+| 4 | `Stats.jsx` | Navigateur journalier : ligne `🍷 Alcool : Xg · ~Yh sans brûlage de gras` (Y = g ÷ (0,1 × poids)) |
+| 5 | `Dashboard.jsx` | `AlcoolCard` ambre sous la BilanCard (jours avec alcool) : grammes, kcal, durée de pause lipolyse |
+| 6 | `Aide.jsx` | Entrée glossaire « Alcool et lipolyse » (formules + exemple 119 kg) |
+| 7 | `MigrationAPK.jsx` | Le mur/bannière migration ne s'affiche plus en dev local (`import.meta.env.DEV`) |
+
+### Notes techniques
+- `alcoolG` vit dans le JSON `aliments` des repas → **zéro migration Supabase/IndexedDB**
+- Constante physiologique : élimination éthanol ~0,1 g/kg/h ; alcool = 7 kcal/g
+- Validé : build prod OK + test logique getWeeklyTrends sur données synthétiques
+  (semaine déficit −500/j + 55 g alcool → Estimé −0,38 / Balance −0,07 / Écart +0,31 🍷)
+- Les repas photo/IA ne détectent pas encore l'alcool — seule la saisie via Boissons compte (backlog)
+- **Non commité** — la working tree contenait déjà du travail en cours (Health Connect, v1.7.x)
