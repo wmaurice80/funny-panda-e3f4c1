@@ -506,3 +506,43 @@ export async function pullGarminDaily(userId) {
   if (error) throw error
   return data ?? []
 }
+
+/**
+ * UPSERT données Health Connect dans garmin_daily.
+ * Ne remplace pas si total_kcal = 0. Contrainte unique : user_id + date.
+ * @param {string} userId
+ * @param {Array<{ date: string, total_kcal: number, active_kcal: number, steps: number }>} entries
+ * @returns {boolean} true si succès, false si erreur
+ */
+export async function pushGarminDaily(userId, entries) {
+  if (!userId || !entries?.length) return false
+  try {
+    // Filtre les entrées avec total_kcal = 0 ET active_kcal = 0 ET steps = 0
+    const validEntries = entries.filter(
+      e => (e.total_kcal ?? 0) > 0 || (e.active_kcal ?? 0) > 0 || (e.steps ?? 0) > 0
+    )
+    if (!validEntries.length) return false
+
+    const payload = validEntries.map(e => ({
+      user_id: userId,
+      date: e.date,
+      total_kcal: e.total_kcal ?? 0,
+      active_kcal: e.active_kcal ?? 0,
+      steps: e.steps ?? 0,
+      device_last_sync: new Date().toISOString(),
+    }))
+
+    const { error } = await supabase
+      .from('garmin_daily')
+      .upsert(payload, {
+        onConflict: 'user_id,date',
+        ignoreDuplicates: false,
+      })
+
+    if (error) throw error
+    return true
+  } catch (err) {
+    console.warn('[supabaseDb] pushGarminDaily:', err?.message)
+    return false
+  }
+}
