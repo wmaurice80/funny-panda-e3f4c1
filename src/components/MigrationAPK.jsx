@@ -159,7 +159,8 @@ export function useMigration() {
   const now        = new Date();
   const isAfter    = now >= CUTOFF_DATE;
 
-  if (IS_NATIVE) return { showWall: false, showBanner: false };
+  // Jamais de mur ni de bannière dans l'APK natif, ni en dev local
+  if (IS_NATIVE || import.meta.env.DEV) return { showWall: false, showBanner: false };
 
   return {
     showWall:   isAfter,

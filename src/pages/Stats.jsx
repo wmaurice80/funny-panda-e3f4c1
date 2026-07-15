@@ -55,6 +55,7 @@ export default function Stats() {
   const [cible, setCible] = useState(null);
   const [objectif, setObjectif] = useState('maintien');
   const [proteinGoal, setProteinGoal] = useState(0);
+  const [poidsProfil, setPoidsProfil] = useState(null);
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [monthlyData, setMonthlyData] = useState([]);
   const [bilan, setBilan] = useState(null);
@@ -92,6 +93,7 @@ export default function Stats() {
       setCible(computedCible);
       setObjectif(profile.objectif ?? 'maintien');
       setProteinGoal(calculateProteinGoal(profile));
+      setPoidsProfil(profile.poids ?? null);
       const gMap = {};
       for (const entry of garminRows) {
         gMap[entry.date] = entry;
@@ -365,6 +367,26 @@ export default function Stats() {
                       <span className="text-xs text-gray-500">📉 Déficit réel vs TDEE</span>
                       <span className={`text-sm font-bold ${isDeficit ? 'text-emerald-400' : 'text-red-400'}`}>
                         {isDeficit ? '-' : '+'}{Math.abs(deficitReel).toLocaleString('fr-FR')} kcal
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Alcool — lipolyse en pause pendant l'oxydation de l'éthanol (~0,1 g/kg/h) */}
+                {d.alcoholG > 0 && (() => {
+                  const heuresPause = poidsProfil > 0
+                    ? Math.round((d.alcoholG / (0.1 * poidsProfil)) * 10) / 10
+                    : null;
+                  return (
+                    <div className="border-t border-white/5 pt-3 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">🍷 Alcool</span>
+                      <span className="text-sm font-bold text-amber-400">
+                        {Math.round(d.alcoholG)} g
+                        {heuresPause !== null && (
+                          <span className="text-xs font-medium text-amber-400/70 ml-1.5">
+                            · ~{heuresPause.toLocaleString('fr-FR')} h sans brûlage de gras
+                          </span>
+                        )}
                       </span>
                     </div>
                   );

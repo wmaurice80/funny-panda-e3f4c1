@@ -3,6 +3,14 @@ import { useState } from 'react';
 
 const GLOSSAIRE = [
   {
+    terme: 'Alcool et lipolyse',
+    label: "Pourquoi l'alcool freine la perte de gras",
+    emoji: '🍷',
+    definition: "L'alcool (7 kcal/g) ne peut pas être stocké : ton corps le brûle en priorité absolue. Pendant ce temps (~0,1 g par kg de poids et par heure), la combustion des graisses est quasi stoppée — même en déficit calorique. Sur la semaine, le déficit reste le facteur n°1, mais l'alcool retarde la lipolyse, favorise le stockage des graisses mangées en même temps et provoque une rétention d'eau qui masque la perte sur la balance pendant 2-3 jours.",
+    formule: "Alcool (g) = volume(ml) × %vol × 0,789 — pause lipolyse ≈ g ÷ (0,1 × poids)",
+    exemple: "2 pintes (40 g d'alcool) à 119 kg → ~3,4 h sans brûlage de gras + 280 kcal. Visible dans Stats : écart Estimé vs Balance des semaines 🍷",
+  },
+  {
     terme: 'BMR',
     label: 'Métabolisme de base',
     emoji: '🔥',

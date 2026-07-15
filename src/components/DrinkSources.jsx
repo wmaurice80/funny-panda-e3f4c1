@@ -7,9 +7,17 @@ const DRINKS = [
     nom: 'Bière blonde (5%)',
     emoji: '🍺',
     portions: [
-      { label: 'Demi 25cl', calories: 108, proteines: 1, portion: '25 cl' },
-      { label: 'Canette 33cl', calories: 142, proteines: 1, portion: '33 cl' },
-      { label: 'Pinte 50cl', calories: 215, proteines: 2, portion: '50 cl' },
+      { label: 'Demi 25cl', calories: 108, proteines: 1, portion: '25 cl', alcoolG: 10 },
+      { label: 'Canette 33cl', calories: 142, proteines: 1, portion: '33 cl', alcoolG: 13 },
+      { label: 'Pinte 50cl', calories: 215, proteines: 2, portion: '50 cl', alcoolG: 20 },
+    ],
+  },
+  {
+    id: 'biere-50cl',
+    nom: 'Bière 50cl',
+    emoji: '🍺',
+    portions: [
+      { label: '50cl (5%)', calories: 215, proteines: 2, portion: '50 cl', alcoolG: 20 },
     ],
   },
   {
@@ -17,8 +25,8 @@ const DRINKS = [
     nom: 'Bière légère (3%)',
     emoji: '🍻',
     portions: [
-      { label: 'Demi 25cl', calories: 65, proteines: 1, portion: '25 cl' },
-      { label: 'Canette 33cl', calories: 86, proteines: 1, portion: '33 cl' },
+      { label: 'Demi 25cl', calories: 65, proteines: 1, portion: '25 cl', alcoolG: 6 },
+      { label: 'Canette 33cl', calories: 86, proteines: 1, portion: '33 cl', alcoolG: 8 },
     ],
   },
   {
@@ -26,9 +34,9 @@ const DRINKS = [
     nom: 'Bière forte (8%)',
     emoji: '🍺',
     portions: [
-      { label: 'Demi 25cl', calories: 163, proteines: 1, portion: '25 cl' },
-      { label: 'Canette 33cl', calories: 215, proteines: 2, portion: '33 cl' },
-      { label: 'Bouteille 75cl', calories: 488, proteines: 3, portion: '75 cl' },
+      { label: 'Demi 25cl', calories: 163, proteines: 1, portion: '25 cl', alcoolG: 16 },
+      { label: 'Canette 33cl', calories: 215, proteines: 2, portion: '33 cl', alcoolG: 21 },
+      { label: 'Bouteille 75cl', calories: 488, proteines: 3, portion: '75 cl', alcoolG: 47 },
     ],
   },
   {
@@ -36,9 +44,9 @@ const DRINKS = [
     nom: 'Bière forte (10%)',
     emoji: '🍺',
     portions: [
-      { label: 'Demi 25cl', calories: 200, proteines: 1, portion: '25 cl' },
-      { label: 'Canette 33cl', calories: 264, proteines: 2, portion: '33 cl' },
-      { label: 'Bouteille 75cl', calories: 600, proteines: 3, portion: '75 cl' },
+      { label: 'Demi 25cl', calories: 200, proteines: 1, portion: '25 cl', alcoolG: 20 },
+      { label: 'Canette 33cl', calories: 264, proteines: 2, portion: '33 cl', alcoolG: 26 },
+      { label: 'Bouteille 75cl', calories: 600, proteines: 3, portion: '75 cl', alcoolG: 59 },
     ],
   },
   {
@@ -46,9 +54,9 @@ const DRINKS = [
     nom: 'Vin rouge',
     emoji: '🍷',
     portions: [
-      { label: 'Verre 12cl', calories: 102, proteines: 0, portion: '12 cl' },
-      { label: 'Verre 15cl', calories: 128, proteines: 0, portion: '15 cl' },
-      { label: 'Demi-bouteille 37cl', calories: 315, proteines: 0, portion: '37 cl' },
+      { label: 'Verre 12cl', calories: 102, proteines: 0, portion: '12 cl', alcoolG: 12 },
+      { label: 'Verre 15cl', calories: 128, proteines: 0, portion: '15 cl', alcoolG: 15 },
+      { label: 'Demi-bouteille 37cl', calories: 315, proteines: 0, portion: '37 cl', alcoolG: 36 },
     ],
   },
   {
@@ -56,9 +64,9 @@ const DRINKS = [
     nom: 'Vin blanc sec',
     emoji: '🥂',
     portions: [
-      { label: 'Verre 12cl', calories: 84, proteines: 0, portion: '12 cl' },
-      { label: 'Verre 15cl', calories: 105, proteines: 0, portion: '15 cl' },
-      { label: 'Demi-bouteille 37cl', calories: 259, proteines: 0, portion: '37 cl' },
+      { label: 'Verre 12cl', calories: 84, proteines: 0, portion: '12 cl', alcoolG: 11 },
+      { label: 'Verre 15cl', calories: 105, proteines: 0, portion: '15 cl', alcoolG: 14 },
+      { label: 'Demi-bouteille 37cl', calories: 259, proteines: 0, portion: '37 cl', alcoolG: 35 },
     ],
   },
   {
@@ -66,8 +74,8 @@ const DRINKS = [
     nom: 'Champagne / Prosecco',
     emoji: '🍾',
     portions: [
-      { label: 'Flûte 10cl', calories: 80, proteines: 0, portion: '10 cl' },
-      { label: 'Coupe 15cl', calories: 120, proteines: 0, portion: '15 cl' },
+      { label: 'Flûte 10cl', calories: 80, proteines: 0, portion: '10 cl', alcoolG: 9 },
+      { label: 'Coupe 15cl', calories: 120, proteines: 0, portion: '15 cl', alcoolG: 14 },
     ],
   },
   {
@@ -118,12 +126,38 @@ const DRINKS = [
     ],
   },
   {
+    id: 'ti-punch-miel',
+    nom: 'Ti Punch miel citron',
+    emoji: '🍹',
+    portions: [
+      { label: 'Verre (4cl rhum)', calories: 140, proteines: 0, portion: '~8 cl', alcoolG: 16 },
+    ],
+  },
+  {
     id: 'whisky',
     nom: 'Whisky / Rhum / Vodka',
     emoji: '🥃',
     portions: [
-      { label: 'Shot 4cl', calories: 96, proteines: 0, portion: '4 cl' },
-      { label: 'Double shot 8cl', calories: 192, proteines: 0, portion: '8 cl' },
+      { label: 'Shot 4cl', calories: 96, proteines: 0, portion: '4 cl', alcoolG: 13 },
+      { label: 'Double shot 8cl', calories: 192, proteines: 0, portion: '8 cl', alcoolG: 25 },
+    ],
+  },
+  {
+    id: 'beurre-cacahuete-proteine',
+    nom: 'Beurre cacahuète protéiné',
+    emoji: '🥜',
+    portions: [
+      { label: '1 portion 34g (2 c.à.s)', calories: 195, proteines: 10, portion: '34 g' },
+      { label: '2 portions 68g', calories: 390, proteines: 20, portion: '68 g' },
+    ],
+  },
+  {
+    id: 'ptit-suisse',
+    nom: 'Petit-suisse nature',
+    emoji: '🧀',
+    portions: [
+      { label: '1 pot 60g', calories: 80, proteines: 6, portion: '60 g' },
+      { label: '2 pots 120g', calories: 160, proteines: 12, portion: '120 g' },
     ],
   },
   {
@@ -146,6 +180,7 @@ export default function DrinkSources({ onAjouter }) {
       calories: portion.calories,
       proteines: portion.proteines,
       portion: portion.portion,
+      ...(portion.alcoolG ? { alcoolG: portion.alcoolG } : {}),
     });
     setSelectedId(null);
   }

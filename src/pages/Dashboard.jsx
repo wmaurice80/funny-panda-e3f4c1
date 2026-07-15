@@ -296,6 +296,48 @@ function ProteinCard({ ingested, goal, delay }) {
   );
 }
 
+/** Somme les grammes d'alcool des items alcoolG de tous les repas du jour */
+function sumAlcool(meals) {
+  return meals.reduce(
+    (s, m) => s + (m.aliments ?? []).reduce((s2, a) => s2 + (a.alcoolG ?? 0), 0),
+    0
+  );
+}
+
+/**
+ * AlcoolCard — visible uniquement les jours avec alcool saisi.
+ * L'éthanol est oxydé en priorité (~0,1 g/kg/h) : pendant ce temps la
+ * lipolyse est quasi stoppée, même en déficit calorique.
+ */
+function AlcoolCard({ alcoolG, poids, delay }) {
+  if (!alcoolG || alcoolG <= 0) return null;
+  const kcal = Math.round(alcoolG * 7);
+  const heures = poids > 0 ? Math.round((alcoolG / (0.1 * poids)) * 10) / 10 : null;
+  return (
+    <div
+      className="bg-amber-900/20 border border-amber-700/30 rounded-2xl p-4 shadow-xl animate-fade-in-up"
+      style={{ animationDelay: delay }}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+          Alcool aujourd'hui
+        </span>
+        <span className="text-xl">🍷</span>
+      </div>
+      <p className="text-sm text-white font-bold">
+        {Math.round(alcoolG)} g d'alcool
+        <span className="text-xs font-medium text-gray-400 ml-1.5">({kcal} kcal)</span>
+      </p>
+      {heures !== null && (
+        <p className="text-xs text-amber-400/90 mt-1 leading-snug">
+          ⏸ Combustion des graisses en pause ~{heures.toLocaleString('fr-FR')} h — même en
+          déficit, ton corps brûle l'alcool en priorité avant de re-puiser dans les graisses.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Formate 'YYYY-MM-DD' en 'j mois' court (ex. '12 mai') */
 function formatDateShortFR(iso) {
   if (!iso) return '';
@@ -369,6 +411,7 @@ export default function Dashboard() {
   const [caloriesIngerees, setCaloriesIngerees] = useState(0);
   const [totalSport, setTotalSport] = useState(0);
   const [totalProteinesJour, setTotalProteinesJour] = useState(0);
+  const [alcoolJour, setAlcoolJour] = useState(0);
   const [latestWeight, setLatestWeight] = useState(undefined);
   const [evolution30, setEvolution30] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -400,6 +443,7 @@ export default function Dashboard() {
     setCaloriesIngerees(meals.reduce((sum, m) => sum + (m.totalCalories ?? 0), 0));
     setTotalSport(acts.reduce((sum, a) => sum + (a.caloriesBrulees ?? 0), 0));
     setTotalProteinesJour(meals.reduce((sum, m) => sum + (m.totalProteines ?? 0), 0));
+    setAlcoolJour(sumAlcool(meals));
     setLatestWeight(lw ?? null);
 
     // Dernière entrée Garmin (triée par date desc) + entrée du jour
@@ -466,6 +510,7 @@ export default function Dashboard() {
       setCaloriesIngerees(meals.reduce((sum, m) => sum + (m.totalCalories ?? 0), 0));
       setTotalSport(acts.reduce((sum, a) => sum + (a.caloriesBrulees ?? 0), 0));
       setTotalProteinesJour(meals.reduce((sum, m) => sum + (m.totalProteines ?? 0), 0));
+      setAlcoolJour(sumAlcool(meals));
       setLatestWeight(lw ?? null);
       setTodayGarminEntry(garminRows?.find(g => g.date === today) ?? null);
 
@@ -677,6 +722,13 @@ export default function Dashboard() {
           caloriesIngerees={caloriesIngerees}
           totalSport={totalSport}
           delay="0ms"
+        />
+
+        {/* 1bis — Alcool du jour (lipolyse en pause) */}
+        <AlcoolCard
+          alcoolG={alcoolJour}
+          poids={profile.poids}
+          delay="30ms"
         />
 
         {/* 2 — Protéines */}
